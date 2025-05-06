@@ -99,16 +99,18 @@ const sendMessageToSunshine = async (conversationId, message, authorType = 'busi
 };
 
 // Función para crear un ticket en Zendesk
-const createZendeskTicket = async (user, conversationId) => {
+const createZendeskTicket = async (user, conversationId, message) => {
     try {
         const ticket = {
             ticket: {
                 subject: `Chat con ${user.givenName} ${user.surname}`,
                 comment: {
-                    body: "Chat iniciado",
+                    body: message,
                     is_public: false,
                     author: {
-                        name: "System"
+                        type: 'user',
+                        id: user.id,
+                        name: `${user.givenName} ${user.surname}`
                     }
                 },
                 requester: {
@@ -495,16 +497,15 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                     return res.status(200).json({ status: 'ignored', message: 'Comentario privado del sistema' });
                 }
 
+                // Solo procesamos comentarios de agentes o admins
+                if (comment.author.role !== 'agent' && comment.author.role !== 'admin') {
+                    console.log('Ignorando comentario que no es de agente o admin');
+                    return res.status(200).json({ status: 'ignored', message: 'Comentario no es de agente o admin' });
+                }
+
                 try {
-                    // Si es un comentario de agente, lo enviamos como business
-                    if (comment.author.role === 'agent') {
-                        await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
-                        console.log('Mensaje de agente enviado exitosamente a Sunshine');
-                    } else {
-                        // Si es un comentario de usuario, lo enviamos como user
-                        await sendMessageToSunshine(conversationId, comment.body, 'user', comment.author.name);
-                        console.log('Mensaje de usuario enviado exitosamente a Sunshine');
-                    }
+                    await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
+                    console.log('Mensaje de agente enviado exitosamente a Sunshine');
 
                     res.json({
                         status: 'success',
@@ -623,14 +624,14 @@ app.get('/api/v1/zendesk/users/:externalId/conversations', async (req, res) => {
             if (messagesResponse.ok) {
                 const messagesData = await messagesResponse.json();
                 const messages = messagesData.messages || [];
-                const lastMessage = messages[messages.length - 1];
+                console.log('Mensajes obtenidos:', messages.length);
 
                 res.json({
                     conversations: [{
                         id: conversation.id,
-                        lastMessage: lastMessage ? {
-                            text: lastMessage.content.text,
-                            timestamp: lastMessage.received
+                        lastMessage: messages.length > 0 ? {
+                            text: messages[messages.length - 1].content.text,
+                            timestamp: messages[messages.length - 1].received
                         } : null,
                         participants: [
                             {
@@ -644,7 +645,7 @@ app.get('/api/v1/zendesk/users/:externalId/conversations', async (req, res) => {
                                 displayName: 'VIVLA'
                             }
                         ],
-                        updatedAt: lastMessage?.received || conversation.updatedAt || new Date().toISOString()
+                        updatedAt: messages.length > 0 ? messages[messages.length - 1].received : conversation.updatedAt || new Date().toISOString()
                     }]
                 });
                 return;
