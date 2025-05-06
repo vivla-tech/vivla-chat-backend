@@ -275,43 +275,47 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
     try {
         console.log('Webhook recibido de Zendesk:', JSON.stringify(req.body, null, 2));
 
-        // Verificar que es un comentario nuevo
+        // Verificar que hay datos
         if (!req.body) {
             console.error('No hay datos en el webhook');
             return res.status(400).json({ error: 'No hay datos en el webhook' });
         }
 
-        // Verificar si es una actualización de ticket
-        if (req.body.event !== 'ticket.updated') {
-            console.log('Evento no es ticket.updated:', req.body.event);
-            return res.status(200).json({ status: 'ignored', message: 'Evento no es ticket.updated' });
+        // Verificar si es una actualización de ticket o un comentario
+        if (req.body.event === 'ticket.updated' || req.body.event === 'ticket.commented') {
+            const ticket = req.body.ticket;
+            const comment = req.body.comment;
+
+            if (!ticket || !comment) {
+                console.error('Datos incompletos en el webhook:', { ticket, comment });
+                return res.status(400).json({ error: 'Datos incompletos' });
+            }
+
+            // Buscar la conversación asociada al ticket
+            const conversationId = ticket.tags.find(tag => tag.startsWith('conversation_'))?.split('_')[1];
+
+            if (!conversationId) {
+                console.error('No se encontró ID de conversación en los tags del ticket:', ticket.tags);
+                return res.status(400).json({ error: 'No se encontró conversación asociada' });
+            }
+
+            console.log('Enviando mensaje a Sunshine:', {
+                conversationId,
+                message: comment.body
+            });
+
+            // Enviar el mensaje a Sunshine
+            await sendMessageToSunshine(conversationId, comment.body);
+
+            res.json({ status: 'success', message: 'Mensaje enviado a Sunshine' });
+        } else {
+            console.log('Evento no manejado:', req.body.event);
+            return res.status(200).json({
+                status: 'ignored',
+                message: 'Evento no manejado',
+                event: req.body.event
+            });
         }
-
-        const ticket = req.body.ticket;
-        const comment = req.body.comment;
-
-        if (!ticket || !comment) {
-            console.error('Datos incompletos en el webhook:', { ticket, comment });
-            return res.status(400).json({ error: 'Datos incompletos' });
-        }
-
-        // Buscar la conversación asociada al ticket
-        const conversationId = ticket.tags.find(tag => tag.startsWith('conversation_'))?.split('_')[1];
-
-        if (!conversationId) {
-            console.error('No se encontró ID de conversación en los tags del ticket:', ticket.tags);
-            return res.status(400).json({ error: 'No se encontró conversación asociada' });
-        }
-
-        console.log('Enviando mensaje a Sunshine:', {
-            conversationId,
-            message: comment.body
-        });
-
-        // Enviar el mensaje a Sunshine
-        await sendMessageToSunshine(conversationId, comment.body);
-
-        res.json({ status: 'success', message: 'Mensaje enviado a Sunshine' });
     } catch (error) {
         console.error('Error en webhook de Zendesk:', error);
         res.status(500).json({ error: 'Error al procesar webhook' });
