@@ -65,7 +65,7 @@ const createConversation = async (externalId) => {
 };
 
 // Función para enviar mensaje a Sunshine
-const sendMessageToSunshine = async (conversationId, message, authorType = 'business') => {
+const sendMessageToSunshine = async (conversationId, message, authorType = 'business', authorName = 'Agente') => {
     try {
         const response = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations/${conversationId}/messages`, {
             method: 'POST',
@@ -75,7 +75,8 @@ const sendMessageToSunshine = async (conversationId, message, authorType = 'busi
             },
             body: JSON.stringify({
                 author: {
-                    type: authorType
+                    type: authorType,
+                    displayName: authorName
                 },
                 content: {
                     type: 'text',
@@ -180,11 +181,10 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
 
         console.log('Enviando mensaje a Sunshine:', { message, externalId });
 
-        // Crear la conversación usando la función separada
         const conversationData = await createConversation(externalId);
         const conversationId = conversationData.conversation.id;
 
-        // Enviar mensaje a Sunshine
+        // Enviar mensaje a Sunshine con el nombre del usuario
         const response = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations/${conversationId}/messages`, {
             method: 'POST',
             headers: {
@@ -194,7 +194,8 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
             body: JSON.stringify({
                 author: {
                     type: 'user',
-                    userExternalId: externalId
+                    userExternalId: externalId,
+                    displayName: `${user.givenName} ${user.surname}`
                 },
                 content: {
                     type: 'text',
@@ -211,7 +212,6 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
 
         const responseData = await response.json();
 
-        // Crear ticket en Zendesk con el ID de conversación
         const zendeskTicket = await createZendeskTicket(user, message, conversationId);
 
         res.json({
@@ -275,13 +275,11 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
     try {
         console.log('Webhook recibido de Zendesk:', JSON.stringify(req.body, null, 2));
 
-        // Verificar que hay datos
         if (!req.body) {
             console.error('No hay datos en el webhook');
             return res.status(400).json({ error: 'No hay datos en el webhook' });
         }
 
-        // Verificar si es un comentario nuevo
         if (req.body.type === 'zen:event-type:ticket.comment_added') {
             const ticket = req.body.detail;
             const comment = req.body.event.comment;
@@ -291,7 +289,6 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                 return res.status(400).json({ error: 'Datos incompletos' });
             }
 
-            // Buscar la conversación asociada al ticket
             const conversationId = ticket.tags.find(tag => tag.startsWith('conversation_'))?.split('_')[1];
 
             if (!conversationId) {
@@ -299,7 +296,6 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                 return res.status(400).json({ error: 'No se encontró conversación asociada' });
             }
 
-            // Verificar que el comentario es público
             if (!comment.is_public) {
                 console.log('Ignorando comentario privado');
                 return res.status(200).json({ status: 'ignored', message: 'Comentario privado' });
@@ -307,11 +303,12 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
 
             console.log('Enviando mensaje a Sunshine:', {
                 conversationId,
-                message: comment.body
+                message: comment.body,
+                authorName: comment.author.name
             });
 
-            // Enviar el mensaje a Sunshine
-            await sendMessageToSunshine(conversationId, comment.body);
+            // Enviar el mensaje a Sunshine con el nombre del agente
+            await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
 
             res.json({ status: 'success', message: 'Mensaje enviado a Sunshine' });
         } else {
