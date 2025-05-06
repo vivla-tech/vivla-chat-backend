@@ -99,15 +99,11 @@ const sendMessageToSunshine = async (conversationId, message, authorType = 'busi
 };
 
 // Función para crear un ticket en Zendesk
-const createZendeskTicket = async (user, message, conversationId) => {
+const createZendeskTicket = async (user, conversationId) => {
     try {
         const ticket = {
             ticket: {
                 subject: `Chat con ${user.givenName} ${user.surname}`,
-                comment: {
-                    body: message,
-                    is_public: false
-                },
                 requester: {
                     name: `${user.givenName} ${user.surname}`,
                     email: user.email
@@ -384,9 +380,9 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
         const responseData = await response.json();
         console.log('Mensaje enviado exitosamente:', responseData);
 
-        // Crear o actualizar ticket en Zendesk
-        const zendeskTicket = await createZendeskTicket(user, message, conversationId);
-        console.log('Ticket de Zendesk creado/actualizado:', zendeskTicket.id);
+        // Crear ticket en Zendesk sin comentario inicial
+        const zendeskTicket = await createZendeskTicket(user, conversationId);
+        console.log('Ticket de Zendesk creado:', zendeskTicket.id);
 
         // Obtener los mensajes actualizados de la conversación
         const messages = await getConversationMessages(conversationId);
@@ -400,7 +396,7 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
                 timestamp: responseData.messages[0].received,
                 content: responseData.messages[0].content,
                 zendeskTicketId: zendeskTicket.id,
-                messages: messages // Incluimos todos los mensajes actualizados
+                messages: messages
             }
         });
     } catch (error) {
@@ -469,10 +465,10 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                     return res.status(400).json({ error: 'Datos incompletos' });
                 }
 
-                // Ignoramos los comentarios privados que son del sistema
-                if (!comment.is_public && comment.author.name === 'System') {
-                    console.log('Ignorando comentario privado del sistema');
-                    return res.status(200).json({ status: 'ignored', message: 'Comentario privado del sistema' });
+                // En el webhook, actualizar la condición para ignorar comentarios
+                if (!comment.is_public) {
+                    console.log('Ignorando comentario privado');
+                    return res.status(200).json({ status: 'ignored', message: 'Comentario privado' });
                 }
 
                 // Buscar el ID de conversación en los tags
@@ -493,8 +489,8 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                 });
 
                 try {
-                    // Solo enviamos el mensaje a Sunshine si es un comentario público o es de un agente
-                    if (comment.is_public || comment.author.role === 'agent') {
+                    // Solo enviamos el mensaje a Sunshine si es un comentario público
+                    if (comment.is_public) {
                         await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
                         console.log('Mensaje enviado exitosamente a Sunshine');
                     }
