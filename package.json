@@ -1,0 +1,25 @@
+{
+  "name": "vivla-chat-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
+    "node-zendesk": "^2.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.26.0",
+    "nodemon": "^3.1.10"
+  }
+}
