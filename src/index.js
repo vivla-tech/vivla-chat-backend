@@ -273,10 +273,25 @@ app.get('/api/v1/zendesk/users/:id', async (req, res) => {
 // Endpoint para recibir actualizaciones de tickets de Zendesk
 app.post('/api/v1/zendesk/webhook', async (req, res) => {
     try {
-        const { ticket, comment } = req.body;
+        console.log('Webhook recibido de Zendesk:', JSON.stringify(req.body, null, 2));
 
         // Verificar que es un comentario nuevo
-        if (!comment || !ticket) {
+        if (!req.body) {
+            console.error('No hay datos en el webhook');
+            return res.status(400).json({ error: 'No hay datos en el webhook' });
+        }
+
+        // Verificar si es una actualización de ticket
+        if (req.body.event !== 'ticket.updated') {
+            console.log('Evento no es ticket.updated:', req.body.event);
+            return res.status(200).json({ status: 'ignored', message: 'Evento no es ticket.updated' });
+        }
+
+        const ticket = req.body.ticket;
+        const comment = req.body.comment;
+
+        if (!ticket || !comment) {
+            console.error('Datos incompletos en el webhook:', { ticket, comment });
             return res.status(400).json({ error: 'Datos incompletos' });
         }
 
@@ -284,9 +299,14 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
         const conversationId = ticket.tags.find(tag => tag.startsWith('conversation_'))?.split('_')[1];
 
         if (!conversationId) {
-            console.error('No se encontró ID de conversación en los tags del ticket');
+            console.error('No se encontró ID de conversación en los tags del ticket:', ticket.tags);
             return res.status(400).json({ error: 'No se encontró conversación asociada' });
         }
+
+        console.log('Enviando mensaje a Sunshine:', {
+            conversationId,
+            message: comment.body
+        });
 
         // Enviar el mensaje a Sunshine
         await sendMessageToSunshine(conversationId, comment.body);
@@ -295,6 +315,41 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
     } catch (error) {
         console.error('Error en webhook de Zendesk:', error);
         res.status(500).json({ error: 'Error al procesar webhook' });
+    }
+});
+
+// Endpoint para obtener mensajes de una conversación
+app.get('/api/v1/zendesk/conversations/:conversationId/messages', async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+
+        const response = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations/${conversationId}/messages`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Error al obtener mensajes:', errorData);
+            throw new Error(`Error al obtener mensajes: ${response.status} - ${errorData}`);
+        }
+
+        const messages = await response.json();
+        console.log('Mensajes de la conversación:', messages);
+
+        res.json({
+            status: 'success',
+            messages: messages
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({
+            error: 'Error al obtener mensajes',
+            details: error.message
+        });
     }
 });
 
