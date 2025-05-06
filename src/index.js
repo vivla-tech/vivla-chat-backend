@@ -281,10 +281,10 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
             return res.status(400).json({ error: 'No hay datos en el webhook' });
         }
 
-        // Verificar si es una actualización de ticket o un comentario
-        if (req.body.event === 'ticket.updated' || req.body.event === 'ticket.commented') {
-            const ticket = req.body.ticket;
-            const comment = req.body.comment;
+        // Verificar si es un comentario nuevo
+        if (req.body.type === 'zen:event-type:ticket.comment_added') {
+            const ticket = req.body.detail;
+            const comment = req.body.event.comment;
 
             if (!ticket || !comment) {
                 console.error('Datos incompletos en el webhook:', { ticket, comment });
@@ -299,6 +299,12 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                 return res.status(400).json({ error: 'No se encontró conversación asociada' });
             }
 
+            // Verificar que el comentario es público
+            if (!comment.is_public) {
+                console.log('Ignorando comentario privado');
+                return res.status(200).json({ status: 'ignored', message: 'Comentario privado' });
+            }
+
             console.log('Enviando mensaje a Sunshine:', {
                 conversationId,
                 message: comment.body
@@ -309,11 +315,11 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
 
             res.json({ status: 'success', message: 'Mensaje enviado a Sunshine' });
         } else {
-            console.log('Evento no manejado:', req.body.event);
+            console.log('Evento no manejado:', req.body.type);
             return res.status(200).json({
                 status: 'ignored',
                 message: 'Evento no manejado',
-                event: req.body.event
+                event: req.body.type
             });
         }
     } catch (error) {
