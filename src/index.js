@@ -104,6 +104,13 @@ const createZendeskTicket = async (user, conversationId) => {
         const ticket = {
             ticket: {
                 subject: `Chat con ${user.givenName} ${user.surname}`,
+                comment: {
+                    body: "Chat iniciado",
+                    is_public: false,
+                    author: {
+                        name: 'System'
+                    }
+                },
                 requester: {
                     name: `${user.givenName} ${user.surname}`,
                     email: user.email
