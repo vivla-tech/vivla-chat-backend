@@ -344,10 +344,34 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
         let conversationId;
 
         if (!conversation) {
-            // Si no existe conversación, creamos una nueva
+            // Si no existe conversación, primero creamos el ticket en Zendesk
+            console.log('Creando ticket en Zendesk...');
+            const ticket = {
+                ticket: {
+                    subject: `Chat con ${user.givenName} ${user.surname}`,
+                    requester: {
+                        name: `${user.givenName} ${user.surname}`,
+                        email: user.email
+                    },
+                    priority: 'normal',
+                    tags: ['chat', 'sunshine']
+                }
+            };
+
+            const zendeskTicket = await zendeskClient.tickets.create(ticket);
+            console.log('Ticket de Zendesk creado:', zendeskTicket.id);
+
+            // Luego creamos la conversación en Sunshine
             console.log('Creando nueva conversación para usuario:', externalId);
             const conversationData = await createConversation(externalId);
             conversationId = conversationData.conversation.id;
+
+            // Actualizamos el ticket con el ID de la conversación
+            await zendeskClient.tickets.update(zendeskTicket.id, {
+                ticket: {
+                    tags: ['chat', 'sunshine', `conversation_${conversationId}`]
+                }
+            });
         } else {
             conversationId = conversation.id;
         }
@@ -387,10 +411,6 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
         const responseData = await response.json();
         console.log('Mensaje enviado exitosamente:', responseData);
 
-        // Crear ticket en Zendesk sin comentario inicial
-        const zendeskTicket = await createZendeskTicket(user, conversationId);
-        console.log('Ticket de Zendesk creado:', zendeskTicket.id);
-
         // Obtener los mensajes actualizados de la conversación
         const messages = await getConversationMessages(conversationId);
 
@@ -402,7 +422,6 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
                 messageId: responseData.messages[0].id,
                 timestamp: responseData.messages[0].received,
                 content: responseData.messages[0].content,
-                zendeskTicketId: zendeskTicket.id,
                 messages: messages
             }
         });
