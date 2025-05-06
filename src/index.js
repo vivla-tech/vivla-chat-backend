@@ -124,10 +124,47 @@ const createZendeskTicket = async (user, message, conversationId) => {
     }
 };
 
+// Función para obtener mensajes de una conversación
+const getConversationMessages = async (conversationId) => {
+    try {
+        const response = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations/${conversationId}/messages`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Error al obtener mensajes:', errorData);
+            throw new Error(`Error al obtener mensajes: ${response.status} - ${errorData}`);
+        }
+
+        const data = await response.json();
+        return data.messages.map(msg => ({
+            id: msg.id,
+            text: msg.content.text,
+            sender: msg.author.type === 'user' ? 'user' : 'agent',
+            timestamp: msg.received
+        }));
+    } catch (error) {
+        console.error('Error en getConversationMessages:', error);
+        throw error;
+    }
+};
+
 // Endpoint para crear usuario en Sunshine
 app.post('/api/v1/zendesk/users', async (req, res) => {
     try {
-        const { givenName, surname, email } = req.body;
+        const { givenName, surname, email, phone, properties } = req.body;
+
+        if (!givenName || !surname || !email) {
+            return res.status(400).json({
+                error: 'Faltan campos requeridos',
+                message: 'Se requiere givenName, surname y email'
+            });
+        }
 
         console.log('Creando usuario en Sunshine...');
 
@@ -139,9 +176,15 @@ app.post('/api/v1/zendesk/users', async (req, res) => {
             },
             body: JSON.stringify({
                 externalId: `user_${Date.now()}`,
-                givenName: givenName || "Usuario",
-                surname: surname || "Prueba",
-                email: email || "usuario.prueba@ejemplo.com"
+                givenName,
+                surname,
+                email,
+                phone: phone || '',
+                properties: {
+                    ...properties,
+                    lastLogin: new Date().toISOString(),
+                    platform: 'web'
+                }
             })
         });
 
@@ -153,10 +196,15 @@ app.post('/api/v1/zendesk/users', async (req, res) => {
             throw new Error(`Error en la respuesta de Sunshine: ${JSON.stringify(userData)}`);
         }
 
+        // Crear una conversación inicial para el usuario
+        const conversationData = await createConversation(userData.user.id);
+        console.log('Conversación inicial creada:', conversationData);
+
         res.json({
             status: 'success',
             message: 'Usuario creado correctamente',
-            user: userData.user
+            user: userData.user,
+            conversation: conversationData.conversation
         });
     } catch (error) {
         console.error('Error:', error);
@@ -280,48 +328,102 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
             return res.status(400).json({ error: 'No hay datos en el webhook' });
         }
 
-        if (req.body.type === 'zen:event-type:ticket.comment_added') {
-            const ticket = req.body.detail;
-            const comment = req.body.event.comment;
+        // Verificar el tipo de evento
+        switch (req.body.type) {
+            case 'zen:event-type:ticket.comment_added':
+                const ticket = req.body.detail;
+                const comment = req.body.event.comment;
 
-            if (!ticket || !comment) {
-                console.error('Datos incompletos en el webhook:', { ticket, comment });
-                return res.status(400).json({ error: 'Datos incompletos' });
-            }
+                if (!ticket || !comment) {
+                    console.error('Datos incompletos en el webhook:', { ticket, comment });
+                    return res.status(400).json({ error: 'Datos incompletos' });
+                }
 
-            const conversationId = ticket.tags.find(tag => tag.startsWith('conversation_'))?.split('_')[1];
+                // Verificar si es un comentario privado
+                if (!comment.is_public) {
+                    console.log('Ignorando comentario privado');
+                    return res.status(200).json({ status: 'ignored', message: 'Comentario privado' });
+                }
 
-            if (!conversationId) {
-                console.error('No se encontró ID de conversación en los tags del ticket:', ticket.tags);
-                return res.status(400).json({ error: 'No se encontró conversación asociada' });
-            }
+                // Buscar el ID de conversación en los tags
+                const conversationId = ticket.tags.find(tag => tag.startsWith('conversation_'))?.split('_')[1];
 
-            if (!comment.is_public) {
-                console.log('Ignorando comentario privado');
-                return res.status(200).json({ status: 'ignored', message: 'Comentario privado' });
-            }
+                if (!conversationId) {
+                    console.error('No se encontró ID de conversación en los tags del ticket:', ticket.tags);
+                    return res.status(400).json({ error: 'No se encontró conversación asociada' });
+                }
 
-            console.log('Enviando mensaje a Sunshine:', {
-                conversationId,
-                message: comment.body,
-                authorName: comment.author.name
-            });
+                console.log('Procesando comentario público:', {
+                    ticketId: ticket.id,
+                    conversationId,
+                    commentId: comment.id,
+                    author: comment.author.name,
+                    message: comment.body.substring(0, 100) + '...' // Log solo los primeros 100 caracteres
+                });
 
-            // Enviar el mensaje a Sunshine con el nombre del agente
-            await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
+                try {
+                    // Enviar el mensaje a Sunshine con el nombre del agente
+                    await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
+                    console.log('Mensaje enviado exitosamente a Sunshine');
 
-            res.json({ status: 'success', message: 'Mensaje enviado a Sunshine' });
-        } else {
-            console.log('Evento no manejado:', req.body.type);
-            return res.status(200).json({
-                status: 'ignored',
-                message: 'Evento no manejado',
-                event: req.body.type
-            });
+                    res.json({
+                        status: 'success',
+                        message: 'Mensaje enviado a Sunshine',
+                        data: {
+                            ticketId: ticket.id,
+                            conversationId,
+                            commentId: comment.id
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error al enviar mensaje a Sunshine:', error);
+                    // Intentamos reenviar el mensaje una vez más
+                    try {
+                        await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
+                        console.log('Mensaje reenviado exitosamente a Sunshine');
+                        res.json({
+                            status: 'success',
+                            message: 'Mensaje reenviado a Sunshine',
+                            data: {
+                                ticketId: ticket.id,
+                                conversationId,
+                                commentId: comment.id
+                            }
+                        });
+                    } catch (retryError) {
+                        console.error('Error en reintento de envío a Sunshine:', retryError);
+                        res.status(500).json({
+                            error: 'Error al enviar mensaje a Sunshine',
+                            details: retryError.message
+                        });
+                    }
+                }
+                break;
+
+            case 'zen:event-type:ticket.created':
+                console.log('Nuevo ticket creado:', req.body.detail.id);
+                res.json({ status: 'success', message: 'Ticket creado recibido' });
+                break;
+
+            case 'zen:event-type:ticket.updated':
+                console.log('Ticket actualizado:', req.body.detail.id);
+                res.json({ status: 'success', message: 'Actualización de ticket recibida' });
+                break;
+
+            default:
+                console.log('Evento no manejado:', req.body.type);
+                res.json({
+                    status: 'ignored',
+                    message: 'Evento no manejado',
+                    event: req.body.type
+                });
         }
     } catch (error) {
         console.error('Error en webhook de Zendesk:', error);
-        res.status(500).json({ error: 'Error al procesar webhook' });
+        res.status(500).json({
+            error: 'Error al procesar webhook',
+            details: error.message
+        });
     }
 });
 
@@ -330,7 +432,8 @@ app.get('/api/v1/zendesk/conversations/:conversationId/messages', async (req, re
     try {
         const { conversationId } = req.params;
 
-        const response = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations/${conversationId}/messages`, {
+        // Primero intentamos obtener la conversación
+        const conversationResponse = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations/${conversationId}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -338,25 +441,17 @@ app.get('/api/v1/zendesk/conversations/:conversationId/messages', async (req, re
             }
         });
 
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error('Error al obtener mensajes:', errorData);
-            throw new Error(`Error al obtener mensajes: ${response.status} - ${errorData}`);
+        if (!conversationResponse.ok) {
+            // Si la conversación no existe, devolvemos un array vacío en lugar de un error
+            return res.json({ messages: [] });
         }
 
-        const messages = await response.json();
-        console.log('Mensajes de la conversación:', messages);
-
-        res.json({
-            status: 'success',
-            messages: messages
-        });
+        const messages = await getConversationMessages(conversationId);
+        res.json({ messages });
     } catch (error) {
         console.error('Error:', error);
-        res.status(500).json({
-            error: 'Error al obtener mensajes',
-            details: error.message
-        });
+        // En caso de error, devolvemos un array vacío en lugar de un error
+        res.json({ messages: [] });
     }
 });
 
