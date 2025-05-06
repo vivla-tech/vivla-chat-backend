@@ -105,13 +105,7 @@ const createZendeskTicket = async (user, conversationId, message) => {
             ticket: {
                 subject: `Chat con ${user.givenName} ${user.surname}`,
                 comment: {
-                    body: message,
-                    is_public: false,
-                    author: {
-                        type: 'user',
-                        id: user.id,
-                        name: `${user.givenName} ${user.surname}`
-                    }
+                    body: message
                 },
                 requester: {
                     name: `${user.givenName} ${user.surname}`,
@@ -392,7 +386,7 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
         console.log('Mensaje enviado exitosamente:', responseData);
 
         // Crear ticket en Zendesk
-        const zendeskTicket = await createZendeskTicket(user, conversationId);
+        const zendeskTicket = await createZendeskTicket(user, conversationId, message);
         console.log('Ticket de Zendesk creado:', zendeskTicket.id);
 
         // Obtener los mensajes actualizados de la conversación
@@ -497,10 +491,10 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                     return res.status(200).json({ status: 'ignored', message: 'Comentario privado del sistema' });
                 }
 
-                // Solo procesamos comentarios de agentes o admins
-                if (comment.author.role !== 'agent' && comment.author.role !== 'admin') {
-                    console.log('Ignorando comentario que no es de agente o admin');
-                    return res.status(200).json({ status: 'ignored', message: 'Comentario no es de agente o admin' });
+                // Solo procesamos comentarios públicos
+                if (!comment.is_public) {
+                    console.log('Ignorando comentario privado');
+                    return res.status(200).json({ status: 'ignored', message: 'Comentario privado' });
                 }
 
                 try {
