@@ -108,7 +108,7 @@ const createZendeskTicket = async (user, conversationId) => {
                     body: "Chat iniciado",
                     is_public: false,
                     author: {
-                        name: 'System'
+                        name: "System"
                     }
                 },
                 requester: {
@@ -472,11 +472,12 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                     return res.status(400).json({ error: 'Datos incompletos' });
                 }
 
-                // En el webhook, actualizar la condición para ignorar comentarios
-                if (!comment.is_public) {
-                    console.log('Ignorando comentario privado');
-                    return res.status(200).json({ status: 'ignored', message: 'Comentario privado' });
-                }
+                console.log('Detalles del comentario:', {
+                    author: comment.author,
+                    isPublic: comment.is_public,
+                    body: comment.body,
+                    type: req.body.type
+                });
 
                 // Buscar el ID de conversación en los tags
                 const conversationId = ticket.tags.find(tag => tag.startsWith('conversation_'))?.split('_')[1];
@@ -486,21 +487,15 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                     return res.status(400).json({ error: 'No se encontró conversación asociada' });
                 }
 
-                console.log('Procesando comentario:', {
-                    ticketId: ticket.id,
-                    conversationId,
-                    commentId: comment.id,
-                    author: comment.author.name,
-                    isPublic: comment.is_public,
-                    message: comment.body.substring(0, 100) + '...' // Log solo los primeros 100 caracteres
-                });
+                // Solo procesamos comentarios de agentes
+                if (comment.author.role !== 'agent') {
+                    console.log('Ignorando comentario que no es de agente');
+                    return res.status(200).json({ status: 'ignored', message: 'Comentario no es de agente' });
+                }
 
                 try {
-                    // Solo enviamos el mensaje a Sunshine si es un comentario público
-                    if (comment.is_public) {
-                        await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
-                        console.log('Mensaje enviado exitosamente a Sunshine');
-                    }
+                    await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
+                    console.log('Mensaje de agente enviado exitosamente a Sunshine');
 
                     res.json({
                         status: 'success',
