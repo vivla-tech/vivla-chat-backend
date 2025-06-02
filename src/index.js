@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 import { createClient } from 'node-zendesk';
+import userRoutes from './routes/userRoutes.js';
+import groupRoutes from './routes/groupRoutes.js';
+import invitationRoutes from './routes/invitationRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -10,6 +13,11 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Rutas de usuario
+app.use('/api/users', userRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/invitations', invitationRoutes);
 
 // Configuración de la aplicación
 const config = {
@@ -23,7 +31,7 @@ const ZENDESK_CONFIG = {
     API_URL: 'https://api.smooch.io/v2',
     WEBHOOK_SECRET: process.env.ZENDESK_WEBHOOK_SECRET,
     SUNSHINE_APP_ID: process.env.SUNSHINE_APP_ID,
-    SUNSHINE_API_KEY: process.env.SUNSHINE_API_KEY,
+    // SUNSHINE_API_KEY: process.env.SUNSHINE_API_KEY,
     ZENDESK_EMAIL: process.env.ZENDESK_EMAIL,
     ZENDESK_TOKEN: process.env.ZENDESK_TOKEN,
     ZENDESK_SUBDOMAIN: process.env.ZENDESK_SUBDOMAIN
@@ -64,6 +72,73 @@ const createConversation = async (externalId) => {
     return conversationData;
 };
 
+// Función para buscar una conversación grupal existente con los mismos participantes
+const findGroupConversation = async (externalIds) => {
+    try {
+        const participantsQuery = externalIds.map(id => `participants.userExternalId:${id}`).join(' ');
+        const searchQuery = `type:group ${participantsQuery}`;
+        const response = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations?filter[type]=group`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
+            }
+        });
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Error al buscar conversaciones grupales:', errorData);
+            return null;
+        }
+        const data = await response.json();
+        // Buscar una conversación que tenga exactamente los mismos participantes
+        const found = data.conversations && data.conversations.find(conv => {
+            if (conv.type !== 'group') return false;
+            const convIds = (conv.participants || []).map(p => p.userExternalId).sort();
+            const idsSorted = [...externalIds].sort();
+            return convIds.length === idsSorted.length && convIds.every((id, idx) => id === idsSorted[idx]);
+        });
+        if (found) {
+            console.log('Conversación grupal existente encontrada:', found.id);
+            return found;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error en findGroupConversation:', error);
+        return null;
+    }
+};
+
+// Modificar createGroupConversation para reutilizar si ya existe
+const createGroupConversation = async (externalIds) => {
+    // Buscar primero si ya existe
+    const existing = await findGroupConversation(externalIds);
+    if (existing) {
+        return { conversation: existing };
+    }
+    // Si no existe, crearla
+    const conversationResponse = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
+        },
+        body: JSON.stringify({
+            type: 'sdkGroup',
+            participants: externalIds.map(id => ({ userExternalId: id }))
+        })
+    });
+
+    if (!conversationResponse.ok) {
+        const errorData = await conversationResponse.text();
+        console.error('Error al crear conversación grupal:', errorData);
+        throw new Error(`Error al crear conversación grupal: ${conversationResponse.status} - ${errorData}`);
+    }
+
+    const conversationData = await conversationResponse.json();
+    console.log('Conversación grupal creada:', conversationData);
+    return conversationData;
+};
+
 // Función para enviar mensaje a Sunshine
 const sendMessageToSunshine = async (conversationId, message, authorType = 'business', authorName = 'Agente') => {
     try {
@@ -98,30 +173,197 @@ const sendMessageToSunshine = async (conversationId, message, authorType = 'busi
     }
 };
 
-// Función para crear un ticket en Zendesk
-const createZendeskTicket = async (user, conversationId, message) => {
+// Función para buscar un ticket existente por conversación
+const findTicketByConversation = async (conversationId) => {
     try {
-        const ticket = {
-            ticket: {
-                subject: `Chat con ${user.givenName} ${user.surname}`,
-                comment: {
-                    body: message
-                },
-                requester: {
-                    name: `${user.givenName} ${user.surname}`,
-                    email: user.email
-                },
-                priority: 'normal',
-                tags: ['chat', 'sunshine', `conversation_${conversationId}`]
-            }
-        };
+        // Primero intentamos buscar por el tag específico
+        const tagSearchQuery = `conversation_${conversationId}`;
+        console.log('Buscando ticket por tag:', tagSearchQuery);
 
-        console.log('Creando ticket en Zendesk:', JSON.stringify(ticket, null, 2));
-        const response = await zendeskClient.tickets.create(ticket);
-        console.log('Ticket creado exitosamente:', response.id);
-        return response;
+        // Intentamos primero con la API de búsqueda
+        try {
+            const searchResponse = await zendeskClient.search.query(tagSearchQuery);
+            console.log('Respuesta de búsqueda completa:', JSON.stringify(searchResponse, null, 2));
+
+            if (searchResponse.results && searchResponse.results.length > 0) {
+                const ticket = searchResponse.results[0];
+                console.log('Ticket encontrado por búsqueda:', {
+                    id: ticket.id,
+                    subject: ticket.subject,
+                    tags: ticket.tags,
+                    status: ticket.status
+                });
+                return ticket;
+            }
+        } catch (searchError) {
+            console.error('Error en búsqueda por API:', searchError);
+        }
+
+        // Si la búsqueda falla, intentamos obtener todos los tickets y filtrar
+        console.log('Intentando búsqueda alternativa...');
+        try {
+            const ticketsResponse = await zendeskClient.tickets.list();
+            console.log('Total de tickets encontrados:', ticketsResponse.length);
+
+            const matchingTicket = ticketsResponse.find(ticket =>
+                ticket.tags &&
+                ticket.tags.includes(`conversation_${conversationId}`) &&
+                ['open', 'pending', 'new'].includes(ticket.status)
+            );
+
+            if (matchingTicket) {
+                console.log('Ticket encontrado por listado:', {
+                    id: matchingTicket.id,
+                    subject: matchingTicket.subject,
+                    tags: matchingTicket.tags,
+                    status: matchingTicket.status
+                });
+                return matchingTicket;
+            }
+        } catch (listError) {
+            console.error('Error en listado de tickets:', listError);
+        }
+
+        console.log('No se encontró ticket existente para la conversación:', conversationId);
+        return null;
     } catch (error) {
-        console.error('Error al crear ticket en Zendesk:', error);
+        console.error('Error al buscar ticket existente:', error);
+        throw error;
+    }
+};
+
+// Buscar usuario en Zendesk por email
+const findZendeskUserByEmail = async (email) => {
+    try {
+        const users = await zendeskClient.users.search({ query: email });
+        if (users && users.length > 0) {
+            return users[0];
+        }
+        return null;
+    } catch (error) {
+        console.error('Error buscando usuario en Zendesk:', error);
+        return null;
+    }
+};
+
+// Crear usuario en Zendesk
+const createZendeskUser = async (user) => {
+    try {
+        const newUser = await zendeskClient.users.create({
+            user: {
+                name: `${user.givenName} ${user.surname}`,
+                email: user.email,
+                role: 'end-user'
+            }
+        });
+        return newUser;
+    } catch (error) {
+        console.error('Error creando usuario en Zendesk:', error);
+        return null;
+    }
+};
+
+// Función para crear o actualizar un ticket en Zendesk
+const createOrUpdateZendeskTicket = async (user, conversationId, message, isAgentMessage = false) => {
+    try {
+        // Buscar ticket existente
+        const existingTicket = await findTicketByConversation(conversationId);
+
+        // Si el mensaje es del usuario, buscamos o creamos el usuario en Zendesk
+        let authorId = undefined;
+        if (!isAgentMessage) {
+            let zendeskUser = await findZendeskUserByEmail(user.email);
+            if (!zendeskUser) {
+                zendeskUser = await createZendeskUser(user);
+            }
+            if (zendeskUser && zendeskUser.id) {
+                authorId = zendeskUser.id;
+            }
+        }
+
+        if (existingTicket) {
+            console.log('Ticket existente encontrado, actualizando...', {
+                ticketId: existingTicket.id,
+                status: existingTicket.status,
+                tags: existingTicket.tags,
+                isAgentMessage,
+                authorId
+            });
+
+            // Formatear el mensaje según el tipo de usuario
+            const formattedMessage = isAgentMessage
+                ? `[Agente - ${new Date().toLocaleString()}] ${message}`
+                : message;
+
+            // Actualizar ticket existente
+            const updateData = {
+                ticket: {
+                    comment: {
+                        body: formattedMessage,
+                        public: true,
+                        ...(authorId ? { author_id: authorId } : {})
+                    },
+                    status: 'pending'
+                }
+            };
+
+            const response = await zendeskClient.tickets.update(existingTicket.id, updateData);
+            console.log('Ticket actualizado exitosamente:', {
+                id: response.id,
+                status: response.status,
+                updated_at: response.updated_at,
+                messageType: isAgentMessage ? 'agent' : 'user',
+                authorId
+            });
+            return response;
+        } else {
+            console.log('No se encontró ticket existente, creando nuevo...');
+            // Crear nuevo ticket
+            const formattedMessage = message;
+
+            const ticket = {
+                ticket: {
+                    subject: `Chat con ${user.givenName} ${user.surname}`,
+                    comment: {
+                        body: formattedMessage,
+                        public: true,
+                        ...(authorId ? { author_id: authorId } : {})
+                    },
+                    requester: {
+                        name: `${user.givenName} ${user.surname}`,
+                        email: user.email
+                    },
+                    priority: 'normal',
+                    status: 'new',
+                    tags: ['chat', 'sunshine', `conversation_${conversationId}`],
+                    custom_fields: [
+                        {
+                            id: 20266554771484,
+                            value: conversationId
+                        }
+                    ]
+                }
+            };
+
+            console.log('Creando nuevo ticket con datos:', {
+                conversationId,
+                user: `${user.givenName} ${user.surname}`,
+                tags: ticket.ticket.tags,
+                messageType: 'user',
+                authorId
+            });
+
+            const response = await zendeskClient.tickets.create(ticket);
+            console.log('Ticket creado exitosamente:', {
+                id: response.id,
+                status: response.status,
+                created_at: response.created_at,
+                authorId
+            });
+            return response;
+        }
+    } catch (error) {
+        console.error('Error al crear/actualizar ticket en Zendesk:', error);
         throw error;
     }
 };
@@ -208,10 +450,28 @@ const getUserConversation = async (externalId) => {
     }
 };
 
+// Función para buscar usuario en Sunshine por externalId
+const findSunshineUserByExternalId = async (externalId) => {
+    try {
+        const response = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/users/${externalId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
+            }
+        });
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data.user;
+    } catch (error) {
+        return null;
+    }
+};
+
 // Endpoint para crear usuario en Sunshine
 app.post('/api/v1/zendesk/users', async (req, res) => {
     try {
-        const { givenName, surname, email, phone, properties, externalId } = req.body;
+        const { givenName, surname, email, phone, properties, externalId, groupExternalIds } = req.body;
 
         if (!givenName || !surname || !email) {
             return res.status(400).json({
@@ -222,42 +482,53 @@ app.post('/api/v1/zendesk/users', async (req, res) => {
 
         console.log('Creando usuario en Sunshine...');
 
-        const createUserResponse = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/users`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
-            },
-            body: JSON.stringify({
-                externalId: externalId || `user_${Date.now()}`,
-                givenName,
-                surname,
-                email,
-                phone: phone || '',
-                properties: {
-                    ...properties,
-                    lastLogin: new Date().toISOString(),
-                    platform: 'web'
-                }
-            })
-        });
-
-        console.log('Status de creación de usuario:', createUserResponse.status);
-        const userData = await createUserResponse.json();
-        console.log('Respuesta de creación de usuario:', userData);
-
-        if (!userData.user || !userData.user.id) {
-            throw new Error(`Error en la respuesta de Sunshine: ${JSON.stringify(userData)}`);
+        // Buscar usuario antes de crearlo
+        let userData = await findSunshineUserByExternalId(externalId);
+        if (!userData) {
+            const createUserResponse = await fetch(`${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
+                },
+                body: JSON.stringify({
+                    externalId: externalId || `user_${Date.now()}`,
+                    givenName,
+                    surname,
+                    email,
+                    phone: phone || '',
+                    properties: {
+                        ...properties,
+                        lastLogin: new Date().toISOString(),
+                        platform: 'web'
+                    }
+                })
+            });
+            console.log('Status de creación de usuario:', createUserResponse.status);
+            const userDataResp = await createUserResponse.json();
+            console.log('Respuesta de creación de usuario:', userDataResp);
+            if (!userDataResp.user || !userDataResp.user.id) {
+                throw new Error(`Error en la respuesta de Sunshine: ${JSON.stringify(userDataResp)}`);
+            }
+            userData = userDataResp.user;
+        } else {
+            console.log('Usuario ya existe en Sunshine:', userData.id);
         }
 
-        // Crear una conversación inicial para el usuario
-        const conversationData = await createConversation(userData.user.id);
+        // Si se pasan varios externalIds, crear conversación grupal
+        let conversationData;
+        if (Array.isArray(groupExternalIds) && groupExternalIds.length > 1) {
+            conversationData = await createGroupConversation(groupExternalIds);
+        } else {
+            // Conversación individual (personal)
+            conversationData = await createConversation(userData.id);
+        }
         console.log('Conversación inicial creada:', conversationData);
 
         res.json({
             status: 'success',
             message: 'Usuario creado correctamente',
-            user: userData.user,
+            user: userData,
             conversation: conversationData.conversation
         });
     } catch (error) {
@@ -272,7 +543,7 @@ app.post('/api/v1/zendesk/users', async (req, res) => {
 // Endpoint para enviar mensaje a un usuario
 app.post('/api/v1/zendesk/messages', async (req, res) => {
     try {
-        const { message, externalId, user } = req.body;
+        const { message, externalId, user, isAgentMessage = false } = req.body;
 
         console.log('Recibiendo solicitud de mensaje:', {
             message,
@@ -386,8 +657,8 @@ app.post('/api/v1/zendesk/messages', async (req, res) => {
         console.log('Mensaje enviado exitosamente:', responseData);
 
         // Crear ticket en Zendesk
-        const zendeskTicket = await createZendeskTicket(user, conversationId, message);
-        console.log('Ticket de Zendesk creado:', zendeskTicket.id);
+        const zendeskTicket = await createOrUpdateZendeskTicket(user, conversationId, message, isAgentMessage);
+        console.log('Ticket de Zendesk procesado:', zendeskTicket.id);
 
         // Obtener los mensajes actualizados de la conversación
         const messages = await getConversationMessages(conversationId);
@@ -498,8 +769,17 @@ app.post('/api/v1/zendesk/webhook', async (req, res) => {
                 }
 
                 try {
+                    // Cuando es un mensaje del agente, pasamos isAgentMessage como true
                     await sendMessageToSunshine(conversationId, comment.body, 'business', comment.author.name);
                     console.log('Mensaje de agente enviado exitosamente a Sunshine');
+
+                    // Actualizar el ticket con el mensaje del agente
+                    await createOrUpdateZendeskTicket(
+                        { givenName: comment.author.name, surname: '', email: comment.author.email },
+                        conversationId,
+                        comment.body,
+                        true // Indicamos que es un mensaje del agente
+                    );
 
                     res.json({
                         status: 'success',
@@ -674,6 +954,53 @@ app.get('/api/v1/zendesk/users/:externalId/conversations', async (req, res) => {
             error: 'Error al obtener conversaciones',
             details: error.message
         });
+    }
+});
+
+// Endpoint para añadir un participante a una conversación existente
+app.post('/api/v1/zendesk/conversations/:conversationId/participants', async (req, res) => {
+    const { conversationId } = req.params;
+    const { userExternalId } = req.body;
+    if (!userExternalId) {
+        return res.status(400).json({ error: 'userExternalId es requerido' });
+    }
+    try {
+        const response = await fetch(
+            `${ZENDESK_CONFIG.API_URL}/apps/${ZENDESK_CONFIG.SUNSHINE_APP_ID}/conversations/${conversationId}/participants`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${Buffer.from(`${ZENDESK_CONFIG.APP_ID}:${ZENDESK_CONFIG.APP_SECRET}`).toString('base64')}`
+                },
+                body: JSON.stringify({ userExternalId })
+            }
+        );
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Error al añadir participante:', errorData);
+            return res.status(response.status).json({ error: errorData });
+        }
+        const data = await response.json();
+        res.json({ status: 'success', participant: data });
+    } catch (error) {
+        console.error('Error en añadir participante:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para crear una conversación sdkGroup desde cero
+app.post('/api/v1/zendesk/conversations/group', async (req, res) => {
+    const { groupExternalIds } = req.body;
+    if (!Array.isArray(groupExternalIds) || groupExternalIds.length < 2) {
+        return res.status(400).json({ error: 'Debes proporcionar al menos dos externalIds en groupExternalIds' });
+    }
+    try {
+        const conversationData = await createGroupConversation(groupExternalIds);
+        res.json({ status: 'success', conversation: conversationData.conversation });
+    } catch (error) {
+        console.error('Error al crear conversación sdkGroup:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
