@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
-import Group from './Group.js';
 
 const InvitedGuest = sequelize.define('InvitedGuest', {
     guest_id: {
@@ -46,12 +45,6 @@ const InvitedGuest = sequelize.define('InvitedGuest', {
     createdAt: 'created_at',
     updatedAt: 'last_seen_at',
     tableName: 'invited_guests'
-});
-
-// Definir la relación con el grupo
-InvitedGuest.belongsTo(Group, {
-    foreignKey: 'associated_group_id',
-    as: 'group'
 });
 
 export default InvitedGuest; 

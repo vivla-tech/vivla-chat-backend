@@ -3,6 +3,7 @@ import User from './User.js';
 import Group from './Group.js';
 import InvitedGuest from './InvitedGuest.js';
 import Message from './Message.js';
+import GroupMember from './GroupMember.js';
 
 // Aquí definiremos las relaciones entre modelos cuando los creemos
 // Por ejemplo:
@@ -14,11 +15,6 @@ User.hasMany(Group, {
     foreignKey: 'owner_firebase_uid',
     sourceKey: 'firebase_uid',
     as: 'ownedGroups'
-});
-
-Group.hasMany(InvitedGuest, {
-    foreignKey: 'associated_group_id',
-    as: 'guests'
 });
 
 Group.hasMany(Message, {
@@ -37,10 +33,34 @@ User.hasMany(Message, {
     as: 'messages'
 });
 
+GroupMember.belongsTo(User, { foreignKey: 'firebase_uid', targetKey: 'firebase_uid', as: 'member' });
+GroupMember.belongsTo(Group, { foreignKey: 'group_id', as: 'groupRef' });
+
+Group.hasMany(InvitedGuest, {
+    foreignKey: 'associated_group_id',
+    as: 'guests'
+});
+InvitedGuest.belongsTo(Group, {
+    foreignKey: 'associated_group_id',
+    as: 'group'
+});
+
+Group.belongsTo(User, {
+    foreignKey: 'owner_firebase_uid',
+    targetKey: 'firebase_uid',
+    as: 'owner'
+});
+
+Group.hasMany(GroupMember, {
+    foreignKey: 'group_id',
+    as: 'members'
+});
+
 export {
     sequelize,
     User,
     Group,
     InvitedGuest,
-    Message
+    Message,
+    GroupMember
 }; 

@@ -6,6 +6,7 @@ import { createClient } from 'node-zendesk';
 import userRoutes from './routes/userRoutes.js';
 import groupRoutes from './routes/groupRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/invitations', invitationRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Configuración de la aplicación
 const config = {

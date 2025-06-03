@@ -31,7 +31,7 @@ export const createInvitation = async (req, res) => {
         });
 
         // Usando tu IP local
-        const inviteLink = `exp://192.168.1.40:8081/--/join/${token}?email=${email}`;
+        const inviteLink = `exp://192.168.1.39:8081/--/join/${token}?email=${email}`;
 
         return res.status(201).json({
             success: true,

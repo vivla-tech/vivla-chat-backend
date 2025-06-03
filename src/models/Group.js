@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
-import User from './User.js';
 
 const Group = sequelize.define('Group', {
     group_id: {
@@ -29,13 +28,6 @@ const Group = sequelize.define('Group', {
     createdAt: 'created_at',
     updatedAt: false,
     tableName: 'groups'
-});
-
-// Definir la relación con el usuario propietario
-Group.belongsTo(User, {
-    foreignKey: 'owner_firebase_uid',
-    targetKey: 'firebase_uid',
-    as: 'owner'
 });
 
 export default Group; 
