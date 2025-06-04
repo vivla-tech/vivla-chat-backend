@@ -1,18 +1,31 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-dotenv.config({ path: '.env.local' });
+dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let app;
+let auth;
 
-// Inicializar Firebase Admin usando el archivo de credenciales
-const app = initializeApp({
-    credential: cert(path.join(__dirname, '../../firebase-credentials.json'))
-});
+try {
+    // Decodificar el service account desde base64
+    const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!serviceAccountBase64) {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT no está definida en las variables de entorno');
+    }
 
-export const auth = getAuth(app);
+    const serviceAccount = JSON.parse(Buffer.from(serviceAccountBase64, 'base64').toString());
+
+    // Inicializar Firebase Admin usando el service account completo
+    app = initializeApp({
+        credential: cert(serviceAccount)
+    });
+
+    auth = getAuth(app);
+} catch (error) {
+    console.error('Error al inicializar Firebase:', error);
+    throw error;
+}
+
+export { auth };
 export default app; 
