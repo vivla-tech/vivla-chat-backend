@@ -133,32 +133,77 @@ export const getUserGroups = async (req, res) => {
 export const addUserToGroup = async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { firebase_uid } = req.body;
+        const { firebase_uid, invitation_token } = req.body;
 
-        // Verifica que el grupo existe
+        // Verificar que el grupo existe
         const group = await Group.findByPk(groupId);
         if (!group) {
             return res.status(404).json({ error: 'Grupo no encontrado' });
         }
 
-        // Verifica que el usuario existe
+        // Verificar que el usuario existe
         const user = await User.findOne({ where: { firebase_uid } });
         if (!user) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        // Verifica si ya es miembro
-        const existing = await GroupMember.findOne({ where: { group_id: groupId, firebase_uid } });
-        if (existing) {
-            return res.status(200).json({ success: true, message: 'El usuario ya es miembro del grupo' });
+        // Si se proporciona un token de invitación, verificar y actualizar su estado
+        if (invitation_token) {
+            const invitation = await InvitedGuest.findOne({
+                where: {
+                    magic_token: invitation_token,
+                    associated_group_id: groupId,
+                    status: 'pending'
+                }
+            });
+
+            if (!invitation) {
+                return res.status(404).json({
+                    error: 'Invitación no válida o ya utilizada'
+                });
+            }
+
+            // Verificar que el email del usuario coincide con el de la invitación
+            if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+                return res.status(403).json({
+                    error: 'El email del usuario no coincide con la invitación'
+                });
+            }
+
+            // Marcar la invitación como aceptada
+            invitation.status = 'accepted';
+            await invitation.save();
         }
 
-        // Añade el usuario como miembro
-        await GroupMember.create({ group_id: groupId, firebase_uid, role: 'member' });
+        // Verificar si el usuario ya es miembro del grupo
+        const existingMember = await GroupMember.findOne({
+            where: {
+                group_id: groupId,
+                firebase_uid
+            }
+        });
 
-        return res.json({ success: true, message: 'Usuario añadido al grupo' });
+        if (existingMember) {
+            return res.status(409).json({
+                error: 'El usuario ya es miembro de este grupo'
+            });
+        }
+
+        // Añadir al usuario como miembro del grupo
+        await GroupMember.create({
+            group_id: groupId,
+            firebase_uid,
+            role: 'member'
+        });
+
+        return res.status(201).json({
+            message: 'Usuario añadido al grupo exitosamente'
+        });
     } catch (error) {
         console.error('Error al añadir usuario al grupo:', error);
-        return res.status(500).json({ error: 'Error al añadir usuario al grupo' });
+        return res.status(500).json({
+            error: 'Error al añadir usuario al grupo',
+            details: error.message
+        });
     }
 }; 
