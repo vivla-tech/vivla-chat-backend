@@ -6,7 +6,7 @@ const router = express.Router();
 // Crear una nueva invitación
 router.post('/', createInvitation);
 
-// Validar una invitación usando el token mágico
+// Validar una invitación usando el token mágico y email
 router.get('/validate/:magic_token', validateInvitation);
 
 // Obtener todas las invitaciones de un grupo

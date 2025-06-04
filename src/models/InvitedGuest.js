@@ -32,6 +32,15 @@ const InvitedGuest = sequelize.define('InvitedGuest', {
         allowNull: false,
         unique: true
     },
+    status: {
+        type: DataTypes.ENUM('pending', 'accepted', 'expired'),
+        allowNull: false,
+        defaultValue: 'pending'
+    },
+    expires_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
     created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW

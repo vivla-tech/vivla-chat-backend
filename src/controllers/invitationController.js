@@ -20,14 +20,17 @@ export const createInvitation = async (req, res) => {
         // Generar token único
         const token = crypto.randomBytes(32).toString('hex');
 
+        // Calcular fecha de expiración (24 horas desde ahora)
+        const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
         // Guardar en la base de datos
         const guest = await InvitedGuest.create({
-            email,
+            email: email.toLowerCase(), // Normalizar email a minúsculas
             name,
             associated_group_id: group_id,
             magic_token: token,
             status: 'pending',
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            expires_at
         });
 
         // Usando tu IP local
@@ -56,9 +59,19 @@ export const createInvitation = async (req, res) => {
 export const validateInvitation = async (req, res) => {
     try {
         const { magic_token } = req.params;
+        const { email } = req.query;
+
+        if (!email) {
+            return res.status(400).json({
+                error: 'El email es requerido para validar la invitación'
+            });
+        }
 
         const guest = await InvitedGuest.findOne({
-            where: { magic_token },
+            where: {
+                magic_token,
+                email: email.toLowerCase() // Normalizar email a minúsculas
+            },
             include: [{
                 model: Group,
                 as: 'group',
@@ -71,7 +84,23 @@ export const validateInvitation = async (req, res) => {
         });
 
         if (!guest) {
-            return res.status(404).json({ error: 'Invitación no válida o expirada' });
+            return res.status(404).json({
+                error: 'Invitación no encontrada o email no coincide'
+            });
+        }
+
+        // Verificar si la invitación ha expirado
+        if (guest.expires_at && new Date(guest.expires_at) < new Date()) {
+            return res.status(410).json({
+                error: 'La invitación ha expirado'
+            });
+        }
+
+        // Verificar si la invitación ya fue utilizada
+        if (guest.status === 'accepted') {
+            return res.status(409).json({
+                error: 'Esta invitación ya fue utilizada'
+            });
         }
 
         // Actualizar last_seen_at
@@ -92,7 +121,10 @@ export const validateInvitation = async (req, res) => {
         });
     } catch (error) {
         console.error('Error al validar invitación:', error);
-        return res.status(500).json({ error: 'Error al validar la invitación' });
+        return res.status(500).json({
+            error: 'Error al validar la invitación',
+            details: error.message
+        });
     }
 };
 
