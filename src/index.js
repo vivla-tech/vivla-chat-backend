@@ -7,9 +7,42 @@ import userRoutes from './routes/userRoutes.js';
 import groupRoutes from './routes/groupRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 dotenv.config();
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer);
+
+
+io.on('connection', (socket) => {
+    console.log('Nuevo cliente conectado');
+
+    socket.on('test', (data) => {
+        console.log('Mensaje de prueba recibido:', data);
+        // Respondemos al cliente
+        socket.emit('test_response', {
+            message: '¡Hola desde el servidor!',
+            received: data
+        });
+    });
+
+    socket.on('chat_message', (data) => {
+        console.log('Nuevo mensaje de chat recibido:', {
+            grupo: data.groupId,
+            usuario: data.userId,
+            mensaje: data.message,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Cliente desconectado');
+    });
+
+});
+
 
 // Middleware
 app.use(cors());
@@ -1013,6 +1046,6 @@ app.use((err, req, res, next) => {
 });
 
 // Iniciar el servidor
-app.listen(config.PORT, () => {
+httpServer.listen(config.PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${config.PORT}`);
 });
