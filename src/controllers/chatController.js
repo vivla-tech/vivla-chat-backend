@@ -2,6 +2,108 @@ import { createContactIfNotExists, getContactConversation, createConversation } 
 import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
 
 /**
+ * Crea o actualiza un usuario con los datos proporcionados
+ * @param {Object} userData - Datos del usuario
+ * @param {string} userData.firebase_uid - ID de Firebase
+ * @param {string} userData.name - Nombre del usuario
+ * @param {string} userData.email - Email del usuario
+ * @param {string} sourceId - ID de fuente de Chatwoot
+ * @param {string} contactId - ID de contacto de Chatwoot
+ * @returns {Promise<User>} Usuario creado o actualizado
+ */
+const createOrUpdateUser = async (userData, sourceId, contactId) => {
+    const { firebase_uid, name, email } = userData;
+    let user = await User.findOne({ where: { firebase_uid } });
+    
+    if (!user) {
+        user = await User.create({
+            firebase_uid,
+            name,
+            email,
+            house_name: name,
+            cw_source_id: sourceId,
+            cw_contact_id: contactId
+        });
+    } else {
+        await user.update({
+            cw_source_id: sourceId,
+            cw_contact_id: contactId
+        });
+    }
+    
+    return user;
+};
+
+/**
+ * Obtiene o crea una conversación para un usuario
+ * @param {User} user - Usuario para el que obtener/crear la conversación
+ * @returns {Promise<Object>} Conversación obtenida o creada
+ */
+const getOrCreateConversation = async (user) => {
+    let conversation = await getContactConversation(user.cw_contact_id);
+
+    if (!conversation) {
+        const newConversation = await createConversation({
+            source_id: user.cw_source_id,
+            contact_id: user.cw_contact_id
+        });
+        conversation = newConversation;
+    }
+
+    return conversation;
+};
+
+/**
+ * Obtiene o crea un grupo para un usuario
+ * @param {User} ownerUser - Usuario propietario del grupo
+ * @param {string} conversationId - ID de la conversación de Chatwoot
+ * @returns {Promise<Group>} Grupo obtenido o creado
+ */
+const getOrCreateGroup = async (ownerUser, conversationId) => {
+    let group = await Group.findOne({ where: { owner_firebase_uid: ownerUser.firebase_uid } });
+    
+    if (!group) {
+        group = await Group.create({
+            name: `${ownerUser.name}'s Chat`,
+            owner_firebase_uid: ownerUser.firebase_uid,
+            cw_conversation_id: conversationId
+        });
+    } else {
+        await group.update({
+            cw_conversation_id: conversationId
+        });
+    }
+    
+    return group;
+};
+
+/**
+ * Añade un usuario como miembro de un grupo
+ * @param {Group} group - Grupo al que añadir el miembro
+ * @param {string} firebase_uid - ID de Firebase del usuario
+ * @param {boolean} isInvited - Indica si el usuario es invitado
+ * @returns {Promise<GroupMember>} Miembro del grupo creado
+ */
+const addUserToGroup = async (group, firebase_uid, isInvited) => {
+    let groupMember = await GroupMember.findOne({
+        where: {
+            group_id: group.group_id,
+            firebase_uid: firebase_uid
+        }
+    });
+
+    if (!groupMember) {
+        groupMember = await GroupMember.create({
+            group_id: group.group_id,
+            firebase_uid: firebase_uid,
+            role: isInvited ? 'member' : 'owner'
+        });
+    }
+
+    return groupMember;
+};
+
+/**
  * Obtiene o crea un chat para un usuario
  * @param {Object} req - Request object
  * @param {string} req.body.firebase_uid - ID de Firebase del usuario
@@ -20,8 +122,8 @@ export const getChat = async (req, res) => {
             });
         }
 
-         // Crear o obtener el contacto en Chatwoot usando los datos del owner
-         const { contact, sourceId } = await createContactIfNotExists(
+        // Crear o obtener el contacto en Chatwoot
+        const { contact, sourceId } = await createContactIfNotExists(
             name,
             email,
             null,
@@ -45,91 +147,23 @@ export const getChat = async (req, res) => {
                 return res.status(404).json({ error: 'owner_not_found' });
             }
 
-            let invitedUser = await User.findOne({ where: { firebase_uid } });
-            if (!invitedUser) {
-                invitedUser = await User.create({
-                    firebase_uid,
-                    name,
-                    email,
-                    house_name: ownerUser.house_name,
-                    cw_source_id: sourceId,
-                    cw_contact_id: contact.id
-                });
-            } else {
-                // Si existe, actualizamos los IDs de Chatwoot
-                await invitedUser.update({
-                    cw_source_id: sourceId,
-                    cw_contact_id: contact.id
-                });
-            }
+            // Crear o actualizar el usuario invitado
+            await createOrUpdateUser({ firebase_uid, name, email }, sourceId, contact.id);
         } else {
-            // Si no es invitado, usar el usuario actual
-            ownerUser = await User.findOne({ where: { firebase_uid } });
-            if (!ownerUser) {
-                ownerUser = await User.create({
-                    firebase_uid,
-                    name,
-                    email,
-                    house_name: name,
-                    cw_source_id: sourceId,
-                    cw_contact_id: contact.id
-                });
-            } else {
-                // Si existe, actualizamos los IDs de Chatwoot
-                await ownerUser.update({
-                    cw_source_id: sourceId,
-                    cw_contact_id: contact.id
-                });
-            }
+            // Si no es invitado, usar el usuario actual como owner
+            ownerUser = await createOrUpdateUser({ firebase_uid, name, email }, sourceId, contact.id);
         }
 
+        // Obtener o crear conversación
+        const conversation = await getOrCreateConversation(ownerUser);
 
-        let conversation = await getContactConversation(ownerUser.cw_contact_id);
+        // Obtener o crear grupo
+        const group = await getOrCreateGroup(ownerUser, conversation.id);
 
-        // Si no hay conversación, creamos una nueva
-        if (!conversation) {
-            const newConversation = await createConversation({
-                source_id: ownerUser.cw_source_id,
-                contact_id: ownerUser.cw_contact_id
-            });
-            conversation = newConversation.payload;
-        }
+        // Añadir usuario al grupo
+        await addUserToGroup(group, firebase_uid, !!invitedGuest);
 
-        // Buscar o crear el grupo para el usuario
-        let group = await Group.findOne({ where: { owner_firebase_uid: ownerUser.firebase_uid } });
-        
-        if (!group) {
-            // Si no existe el grupo, lo creamos
-            group = await Group.create({
-                name: `${ownerUser.name}'s Chat`,
-                owner_firebase_uid: ownerUser.firebase_uid,
-                cw_conversation_id: conversation.id
-            });
-        } else {
-            // Si existe, actualizamos el cw_conversation_id
-            await group.update({
-                cw_conversation_id: conversation.id
-            });
-        }
-
-        // Verificar si el usuario es miembro del grupo
-        let groupMember = await GroupMember.findOne({
-            where: {
-                group_id: group.group_id,
-                firebase_uid: firebase_uid
-            }
-        });
-
-        // Si no es miembro, lo añadimos
-        if (!groupMember) {
-            await GroupMember.create({
-                group_id: group.group_id,
-                firebase_uid: firebase_uid,
-                role: (invitedGuest) ? 'member' : 'owner'
-            });
-        }
-
-        // Por ahora, devolvemos una estructura básica
+        // Devolver estructura del chat
         const chat = {
             id: contact.id,
             conversation_id: conversation.id,
