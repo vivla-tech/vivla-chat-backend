@@ -44,6 +44,24 @@ export const getChat = async (req, res) => {
             if (!ownerUser) {
                 return res.status(404).json({ error: 'owner_not_found' });
             }
+
+            let invitedUser = await User.findOne({ where: { firebase_uid } });
+            if (!invitedUser) {
+                invitedUser = await User.create({
+                    firebase_uid,
+                    name,
+                    email,
+                    house_name: ownerUser.house_name,
+                    cw_source_id: sourceId,
+                    cw_contact_id: contact.id
+                });
+            } else {
+                // Si existe, actualizamos los IDs de Chatwoot
+                await invitedUser.update({
+                    cw_source_id: sourceId,
+                    cw_contact_id: contact.id
+                });
+            }
         } else {
             // Si no es invitado, usar el usuario actual
             ownerUser = await User.findOne({ where: { firebase_uid } });
