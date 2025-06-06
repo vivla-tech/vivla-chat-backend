@@ -9,13 +9,14 @@ import invitationRoutes from './routes/invitationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { sequelize } from './db/models/index.js';
 
-dotenv.config();
+dotenv.config({ path: '.env.local' });
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 
-
+// Configuración de Socket.IO
 io.on('connection', (socket) => {
     console.log('Nuevo cliente conectado');
 
@@ -40,9 +41,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('Cliente desconectado');
     });
-
 });
-
 
 // Middleware
 app.use(cors());

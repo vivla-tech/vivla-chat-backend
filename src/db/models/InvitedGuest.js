@@ -1,11 +1,11 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../config/database.js';
+import { database as sequelize } from '../../config/index.js';
 
 const InvitedGuest = sequelize.define('InvitedGuest', {
     guest_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         primaryKey: true,
-        autoIncrement: true
+        defaultValue: DataTypes.UUIDV4
     },
     email: {
         type: DataTypes.STRING,
@@ -19,8 +19,8 @@ const InvitedGuest = sequelize.define('InvitedGuest', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    associated_group_id: {
-        type: DataTypes.INTEGER,
+    group_id: {
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: 'groups',
@@ -47,13 +47,13 @@ const InvitedGuest = sequelize.define('InvitedGuest', {
     },
     last_seen_at: {
         type: DataTypes.DATE,
-        allowNull: true
+        defaultValue: DataTypes.NOW
     }
 }, {
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: 'last_seen_at',
-    tableName: 'invited_guests'
+    tableName: 'invited_guests',
 });
 
 export default InvitedGuest; 

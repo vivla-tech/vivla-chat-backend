@@ -1,11 +1,11 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../config/database.js';
+import { database as sequelize } from '../../config/index.js';
 
 const User = sequelize.define('User', {
     id: {
         type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+        primaryKey: true,
+        defaultValue: DataTypes.UUIDV4
     },
     firebase_uid: {
         type: DataTypes.STRING,
@@ -24,9 +24,13 @@ const User = sequelize.define('User', {
             isEmail: true
         }
     },
-    house_name: {
-        type: DataTypes.STRING,
-        allowNull: false
+    group_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+            model: 'groups',
+            key: 'group_id'
+        }
     },
     created_at: {
         type: DataTypes.DATE,

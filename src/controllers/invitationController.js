@@ -1,4 +1,4 @@
-import { InvitedGuest, Group, User, GroupMember } from '../models/index.js';
+import { InvitedGuest, Group, User } from '../db/models/index.js';
 import { auth } from '../config/firebase.js';
 import crypto from 'crypto';
 
@@ -30,7 +30,7 @@ export const createInvitation = async (req, res) => {
         const guest = await InvitedGuest.create({
             email: email.toLowerCase(), // Normalizar email a minúsculas
             name,
-            associated_group_id: group_id,
+            group_id,
             magic_token: token,
             status: 'pending',
             expires_at
@@ -145,7 +145,7 @@ export const getGroupInvitations = async (req, res) => {
         }
 
         const guests = await InvitedGuest.findAll({
-            where: { associated_group_id: groupId },
+            where: { group_id: groupId },
             order: [['created_at', 'DESC']]
         });
 
@@ -214,8 +214,7 @@ export const acceptInvitation = async (req, res) => {
             });
         }
 
-        // Si se proporciona contraseña, proceder con la creación de cuenta
-        // Crear usuario en Firebase
+        // Si se proporciona contraseña, proceder con la creación de cuenta en Firebase Auth
         let firebaseUser;
         try {
             firebaseUser = await auth.createUser({
@@ -233,64 +232,28 @@ export const acceptInvitation = async (req, res) => {
             throw firebaseError;
         }
 
-        // Crear usuario en PostgreSQL
-        const postgresUser = await User.create({
-            firebase_uid: firebaseUser.uid,
-            email: email.toLowerCase(),
-            name: guest.name,
-            house_name: guest.name
-        });
-
         // Actualizar estado de la invitación
         guest.status = 'accepted';
         guest.last_seen_at = new Date();
         await guest.save();
 
-        // Añadir usuario al grupo
-        await GroupMember.create({
-            group_id: guest.associated_group_id,
-            firebase_uid: firebaseUser.uid,
-            role: 'member'
-        });
-
         // Generar token de sesión
         const customToken = await auth.createCustomToken(firebaseUser.uid);
 
         return res.json({
-            user: {
-                id: postgresUser.id,
-                firebase_uid: postgresUser.firebase_uid,
-                name: postgresUser.name,
-                email: postgresUser.email,
-                house_name: postgresUser.house_name
-            },
-            group: {
-                group_id: guest.group.group_id,
-                name: guest.group.name,
-                owner: guest.group.owner
+            message: 'Invitación aceptada exitosamente',
+            guest: {
+                guest_id: guest.guest_id,
+                name: guest.name,
+                email: guest.email,
+                group_id: guest.group_id
             },
             token: customToken
         });
-
     } catch (error) {
-        console.error('Error al procesar invitación:', {
-            name: error.name,
-            message: error.message,
-            code: error.code,
-            stack: error.stack
-        });
-
-        // Si hubo error después de crear el usuario en Firebase, intentar limpiar
-        if (error.firebaseUser) {
-            try {
-                await auth.deleteUser(error.firebaseUser.uid);
-            } catch (deleteError) {
-                console.error('Error al limpiar usuario de Firebase:', deleteError);
-            }
-        }
-
+        console.error('Error al aceptar invitación:', error);
         return res.status(500).json({
-            error: 'Error al procesar la invitación',
+            error: 'Error al aceptar la invitación',
             details: error.message
         });
     }

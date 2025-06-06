@@ -1,40 +1,4 @@
-import { Group, User, InvitedGuest, GroupMember } from '../models/index.js';
-import { Op } from 'sequelize';
-
-export const createGroup = async (req, res) => {
-    try {
-        const { name, owner_firebase_uid } = req.body;
-
-        // Validar datos requeridos
-        if (!name || !owner_firebase_uid) {
-            return res.status(400).json({ error: 'Nombre del grupo y ID del propietario son requeridos' });
-        }
-
-        // Verificar que el usuario existe
-        const user = await User.findOne({ where: { firebase_uid: owner_firebase_uid } });
-        if (!user) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        // Crear el grupo
-        const group = await Group.create({
-            name,
-            owner_firebase_uid
-        });
-
-        // Añadir al owner como miembro del grupo
-        await GroupMember.create({
-            group_id: group.group_id,
-            firebase_uid: owner_firebase_uid,
-            role: 'owner'
-        });
-
-        return res.status(201).json(group);
-    } catch (error) {
-        console.error('Error al crear grupo:', error);
-        return res.status(500).json({ error: 'Error al crear el grupo' });
-    }
-};
+import { Group, User, InvitedGuest } from '../db/models/index.js';
 
 export const getGroupById = async (req, res) => {
     try {
@@ -44,165 +8,34 @@ export const getGroupById = async (req, res) => {
                 {
                     model: User,
                     as: 'owner',
-                    attributes: ['name', 'email', 'house_name']
+                    attributes: ['name', 'email']
                 },
                 {
                     model: InvitedGuest,
-                    as: 'guests',
-                    attributes: ['guest_id', 'name', 'email', 'last_seen_at']
-                },
-                {
-                    model: GroupMember,
-                    as: 'members',
-                    include: [
-                        {
-                            model: User,
-                            as: 'member',
-                            attributes: ['firebase_uid', 'name', 'email', 'house_name']
-                        }
-                    ]
+                    as: 'invitedGuests',
+                    attributes: ['guest_id', 'name', 'email', 'status', 'last_seen_at']
                 }
             ]
         });
 
         if (!group) {
-            return res.status(404).json({ error: 'Grupo no encontrado' });
+            return res.status(404).json({
+                error: 'Grupo no encontrado',
+                details: `No existe un grupo con el ID: ${groupId}`
+            });
         }
 
-        return res.json(group);
+        return res.json({
+            group_id: group.group_id,
+            name: group.name,
+            created_at: group.created_at,
+            owner: group.owner,
+            invitedGuests: group.invitedGuests
+        });
     } catch (error) {
         console.error('Error al obtener grupo:', error);
-        return res.status(500).json({ error: 'Error al obtener el grupo' });
-    }
-};
-
-export const getUserGroups = async (req, res) => {
-    try {
-        const { firebase_uid } = req.params;
-
-        // Verificar que el usuario existe
-        const user = await User.findOne({ where: { firebase_uid } });
-        if (!user) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        // Obtener grupos donde el usuario es owner o miembro
-        const groups = await Group.findAll({
-            include: [
-                {
-                    model: GroupMember,
-                    as: 'members',
-                    where: { firebase_uid },
-                    required: false, // Para que también incluya los grupos donde es owner
-                    include: [
-                        {
-                            model: User,
-                            as: 'member',
-                            attributes: ['firebase_uid', 'name', 'email', 'house_name']
-                        }
-                    ]
-                },
-                {
-                    model: User,
-                    as: 'owner',
-                    attributes: ['name', 'email', 'house_name']
-                },
-                {
-                    model: InvitedGuest,
-                    as: 'guests',
-                    attributes: ['guest_id', 'name', 'email', 'last_seen_at']
-                }
-            ],
-            where: {
-                [Op.or]: [
-                    { owner_firebase_uid: firebase_uid },
-                    // Esto permite que también se incluyan los grupos donde es miembro
-                    { '$members.firebase_uid$': firebase_uid }
-                ]
-            },
-            distinct: true
-        });
-
-        return res.json(groups);
-    } catch (error) {
-        console.error('Error al obtener grupos del usuario:', error);
-        return res.status(500).json({ error: 'Error al obtener los grupos' });
-    }
-};
-
-export const addUserToGroup = async (req, res) => {
-    try {
-        const { groupId } = req.params;
-        const { firebase_uid, invitation_token } = req.body;
-
-        // Verificar que el grupo existe
-        const group = await Group.findByPk(groupId);
-        if (!group) {
-            return res.status(404).json({ error: 'Grupo no encontrado' });
-        }
-
-        // Verificar que el usuario existe
-        const user = await User.findOne({ where: { firebase_uid } });
-        if (!user) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
-
-        // Si se proporciona un token de invitación, verificar y actualizar su estado
-        if (invitation_token) {
-            const invitation = await InvitedGuest.findOne({
-                where: {
-                    magic_token: invitation_token,
-                    associated_group_id: groupId,
-                    status: 'pending'
-                }
-            });
-
-            if (!invitation) {
-                return res.status(404).json({
-                    error: 'Invitación no válida o ya utilizada'
-                });
-            }
-
-            // Verificar que el email del usuario coincide con el de la invitación
-            if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
-                return res.status(403).json({
-                    error: 'El email del usuario no coincide con la invitación'
-                });
-            }
-
-            // Marcar la invitación como aceptada
-            invitation.status = 'accepted';
-            await invitation.save();
-        }
-
-        // Verificar si el usuario ya es miembro del grupo
-        const existingMember = await GroupMember.findOne({
-            where: {
-                group_id: groupId,
-                firebase_uid
-            }
-        });
-
-        if (existingMember) {
-            return res.status(409).json({
-                error: 'El usuario ya es miembro de este grupo'
-            });
-        }
-
-        // Añadir al usuario como miembro del grupo
-        await GroupMember.create({
-            group_id: groupId,
-            firebase_uid,
-            role: 'member'
-        });
-
-        return res.status(201).json({
-            message: 'Usuario añadido al grupo exitosamente'
-        });
-    } catch (error) {
-        console.error('Error al añadir usuario al grupo:', error);
         return res.status(500).json({
-            error: 'Error al añadir usuario al grupo',
+            error: 'Error al obtener el grupo',
             details: error.message
         });
     }

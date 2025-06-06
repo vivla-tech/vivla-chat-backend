@@ -1,22 +1,22 @@
 import { DataTypes } from 'sequelize';
-import sequelize from '../config/database.js';
+import { database as sequelize } from '../../config/index.js';
 
 const Group = sequelize.define('Group', {
     group_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         primaryKey: true,
-        autoIncrement: true
+        defaultValue: DataTypes.UUIDV4
     },
     name: {
         type: DataTypes.STRING,
         allowNull: false
     },
-    owner_firebase_uid: {
-        type: DataTypes.STRING,
+    owner_id: {
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: 'users',
-            key: 'firebase_uid'
+            key: 'id'
         }
     },
     created_at: {

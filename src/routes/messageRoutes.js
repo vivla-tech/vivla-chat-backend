@@ -8,16 +8,12 @@ import {
 
 const router = express.Router();
 
-// Crear un nuevo mensaje
 router.post('/', createMessage);
 
-// Obtener mensajes de un grupo
 router.get('/group/:groupId', getGroupMessages);
 
-// Eliminar un mensaje
-router.delete('/:messageId', deleteMessage);
+router.delete('/:messageId/:senderId', deleteMessage);
 
-// Actualizar un mensaje
-router.put('/:messageId', updateMessage);
+router.put('/:messageId/:senderId', updateMessage);
 
 export default router; 
