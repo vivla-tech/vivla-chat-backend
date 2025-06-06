@@ -7,6 +7,7 @@ import userRoutes from './routes/userRoutes.js';
 import groupRoutes from './routes/groupRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -20,6 +21,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Configuración de la aplicación
 const config = {

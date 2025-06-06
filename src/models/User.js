@@ -28,6 +28,16 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    cw_source_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Chatwoot source ID para el usuario'
+    },
+    cw_contact_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Chatwoot contact ID para el usuario'
+    },
     created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
