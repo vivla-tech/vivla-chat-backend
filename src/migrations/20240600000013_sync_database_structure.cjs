@@ -22,6 +22,18 @@ module.exports = {
             }
         };
 
+        // Función auxiliar para eliminar una restricción única
+        const removeUniqueConstraint = async (tableName, constraintName) => {
+            try {
+                await queryInterface.sequelize.query(
+                    `ALTER TABLE "${tableName}" DROP CONSTRAINT IF EXISTS "${constraintName}";`
+                );
+                console.log(`Removed constraint ${constraintName} from ${tableName}`);
+            } catch (error) {
+                console.log(`Could not remove constraint ${constraintName}:`, error.message);
+            }
+        };
+
         // Actualizar tabla users
         const usersIdType = await getColumnType('users', 'id');
         if (usersIdType && usersIdType !== 'STRING') {
@@ -38,12 +50,9 @@ module.exports = {
         if (groupsConversationIdType && groupsConversationIdType !== 'STRING') {
             console.log('Updating groups.cw_conversation_id column type to STRING...');
             
-            // Eliminar índice si existe
-            const indexName = 'groups_cw_conversation_id_key';
-            if (await indexExists('groups', indexName)) {
-                console.log(`Removing index ${indexName}...`);
-                await queryInterface.removeIndex('groups', indexName);
-            }
+            // Eliminar restricción única si existe
+            const constraintName = 'groups_cw_conversation_id_key';
+            await removeUniqueConstraint('groups', constraintName);
 
             // Cambiar tipo de columna
             await queryInterface.changeColumn('groups', 'cw_conversation_id', {
@@ -51,24 +60,22 @@ module.exports = {
                 allowNull: true
             });
 
-            // Recrear índice
-            console.log(`Creating index ${indexName}...`);
-            await queryInterface.addIndex('groups', ['cw_conversation_id'], {
-                unique: true,
-                name: indexName
-            });
+            // Recrear restricción única
+            console.log(`Creating unique constraint ${constraintName}...`);
+            await queryInterface.sequelize.query(
+                `ALTER TABLE "groups" ADD CONSTRAINT "${constraintName}" UNIQUE ("cw_conversation_id");`
+            );
         }
 
         // Verificar y actualizar índices en users
         const usersIndices = ['users_email_key', 'users_firebase_uid_key'];
         for (const indexName of usersIndices) {
             if (!await indexExists('users', indexName)) {
-                console.log(`Creating index ${indexName}...`);
+                console.log(`Creating unique constraint ${indexName}...`);
                 const column = indexName === 'users_email_key' ? 'email' : 'firebase_uid';
-                await queryInterface.addIndex('users', [column], {
-                    unique: true,
-                    name: indexName
-                });
+                await queryInterface.sequelize.query(
+                    `ALTER TABLE "users" ADD CONSTRAINT "${indexName}" UNIQUE ("${column}");`
+                );
             }
         }
 
