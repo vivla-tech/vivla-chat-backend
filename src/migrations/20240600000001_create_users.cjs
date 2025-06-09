@@ -1,12 +1,13 @@
 module.exports = {
     up: async (queryInterface, Sequelize) => {
         await queryInterface.createTable('users', {
-            firebase_uid: {
-                type: Sequelize.STRING,
+            id: {
+                type: Sequelize.INTEGER,
                 primaryKey: true,
+                autoIncrement: true,
                 allowNull: false
             },
-            email: {
+            firebase_uid: {
                 type: Sequelize.STRING,
                 allowNull: false,
                 unique: true
@@ -15,26 +16,38 @@ module.exports = {
                 type: Sequelize.STRING,
                 allowNull: false
             },
-            cw_contact_id: {
-                type: Sequelize.INTEGER,
-                allowNull: true,
+            email: {
+                type: Sequelize.STRING,
+                allowNull: false,
                 unique: true
+            },
+            house_name: {
+                type: Sequelize.STRING,
+                allowNull: true
             },
             cw_source_id: {
                 type: Sequelize.INTEGER,
                 allowNull: true
+            },
+            cw_contact_id: {
+                type: Sequelize.INTEGER,
+                allowNull: true,
+                unique: true
             },
             created_at: {
                 allowNull: false,
                 type: Sequelize.DATE,
                 defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
             },
-            updated_at: {
-                allowNull: false,
+            last_activity: {
                 type: Sequelize.DATE,
-                defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+                allowNull: true
             }
         });
+
+        // Añadimos índices para mejorar el rendimiento
+        await queryInterface.addIndex('users', ['email']);
+        await queryInterface.addIndex('users', ['firebase_uid']);
     },
     down: async (queryInterface, Sequelize) => {
         await queryInterface.dropTable('users');
