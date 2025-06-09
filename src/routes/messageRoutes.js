@@ -4,7 +4,8 @@ import {
     getGroupMessages,
     deleteMessage,
     updateMessage,
-    chatwootWebhook
+    chatwootWebhook,
+    sendMessage
 } from '../controllers/messageController.js';
 
 const router = express.Router();
@@ -23,5 +24,8 @@ router.put('/:messageId', updateMessage);
 
 // Nueva ruta para el webhook de Chatwoot
 router.post('/chatwoot-webhook', chatwootWebhook);
+
+// Ruta para enviar mensajes a Chatwoot usando el servicio existente
+router.post('/send', sendMessage);
 
 export default router; 

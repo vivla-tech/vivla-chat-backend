@@ -1,5 +1,6 @@
 import { Message, User, Group, InvitedGuest } from '../models/index.js';
 import { Op } from 'sequelize';
+import { sendMessage as chatwootSendMessage } from '../services/chatwootService.js';
 
 // Crear un nuevo mensaje
 export const createMessage = async (req, res) => {
@@ -166,11 +167,11 @@ export const updateMessage = async (req, res) => {
 export const chatwootWebhook = async (req, res) => {
     try {
         // Log de los headers para verificar la autenticación
-        console.log('Chatwoot Webhook Headers:', {
-            'x-chatwoot-signature': req.headers['x-chatwoot-signature'],
-            'content-type': req.headers['content-type'],
-            'user-agent': req.headers['user-agent']
-        });
+        // console.log('Chatwoot Webhook Headers:', {
+        //     'x-chatwoot-signature': req.headers['x-chatwoot-signature'],
+        //     'content-type': req.headers['content-type'],
+        //     'user-agent': req.headers['user-agent']
+        // });
 
         // Log del body completo
         console.log('Chatwoot Webhook Body:', JSON.stringify(req.body, null, 2));
@@ -184,13 +185,13 @@ export const chatwootWebhook = async (req, res) => {
             account
         } = req.body;
 
-        console.log('Chatwoot Event Details:', {
-            event,
-            conversationId: conversation?.id,
-            messageId: message?.id,
-            contactId: contact?.id,
-            accountId: account?.id
-        });
+        // console.log('Chatwoot Event Details:', {
+        //     event,
+        //     conversationId: conversation?.id,
+        //     messageId: message?.id,
+        //     contactId: contact?.id,
+        //     accountId: account?.id
+        // });
 
         // Respondemos con 200 para indicar que recibimos el webhook correctamente
         return res.status(200).json({ 
@@ -202,6 +203,49 @@ export const chatwootWebhook = async (req, res) => {
         return res.status(500).json({ 
             status: 'error',
             message: 'Error processing webhook',
+            error: error.message
+        });
+    }
+};
+
+// Enviar mensaje a Chatwoot usando el servicio existente
+export const sendMessage = async (req, res) => {
+    try {
+        const { conversation_id, content } = req.body;
+
+        // Validar datos requeridos
+        if (!conversation_id || !content) {
+            return res.status(400).json({
+                error: 'Faltan datos requeridos: conversation_id y content son necesarios'
+            });
+        }
+
+        console.log('Sending message to Chatwoot:', {
+            conversation_id,
+            content
+        });
+
+        // Usar el servicio de Chatwoot para enviar el mensaje
+        const response = await chatwootSendMessage(conversation_id, content);
+
+        // Log de la respuesta para debugging
+        // console.log('Chatwoot API Response:', {
+        //     messageId: response.id,
+        //     status: response.status
+        // });
+
+        // Devolver la respuesta de Chatwoot
+        return res.status(200).json({
+            status: 'success',
+            message: 'Mensaje enviado correctamente a Chatwoot',
+            data: response
+        });
+
+    } catch (error) {
+        console.error('Error al enviar mensaje a Chatwoot:', error.message);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error al enviar mensaje a Chatwoot',
             error: error.message
         });
     }
