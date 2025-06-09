@@ -166,32 +166,44 @@ export const updateMessage = async (req, res) => {
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
     try {
-        // Log de los headers para verificar la autenticación
-        // console.log('Chatwoot Webhook Headers:', {
-        //     'x-chatwoot-signature': req.headers['x-chatwoot-signature'],
-        //     'content-type': req.headers['content-type'],
-        //     'user-agent': req.headers['user-agent']
-        // });
+        const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox } = req.body;
 
-        // Log del body completo
-        console.log('Chatwoot Webhook Body:', JSON.stringify(req.body, null, 2));
-
-        // Log de los parámetros específicos que suelen venir en eventos de Chatwoot
-        const {
-            event,
-            conversation,
-            message,
-            contact,
-            account
-        } = req.body;
-
-        // console.log('Chatwoot Event Details:', {
-        //     event,
-        //     conversationId: conversation?.id,
-        //     messageId: message?.id,
-        //     contactId: contact?.id,
-        //     accountId: account?.id
-        // });
+        // Solo mostrar detalles completos para message_created
+        if (event === 'message_created') {
+            console.log('Chatwoot Message Created Event:', {
+                id,
+                content,
+                message_type,
+                created_at,
+                private: isPrivate,
+                source_id,
+                content_type,
+                content_attributes,
+                sender: {
+                    type: sender?.type,
+                    id: sender?.id,
+                    name: sender?.name,
+                    email: sender?.email
+                },
+                account: {
+                    id: account?.id,
+                    name: account?.name
+                },
+                conversation: {
+                    id: conversation?.id,
+                    status: conversation?.status,
+                    inbox_id: conversation?.inbox_id
+                },
+                inbox: {
+                    id: inbox?.id,
+                    name: inbox?.name,
+                    channel_type: inbox?.channel_type
+                }
+            });
+        } else {
+            // Para otros eventos, solo mostrar el tipo
+            console.log('Chatwoot Event:', { event });
+        }
 
         // Respondemos con 200 para indicar que recibimos el webhook correctamente
         return res.status(200).json({ 
