@@ -13,6 +13,7 @@
     "db:migrate": "node -e \"console.log('DATABASE_PUBLIC_URL:', process.env.DATABASE_PUBLIC_URL ? process.env.DATABASE_PUBLIC_URL.replace(/:[^:@]*@/, ':****@') : 'not set')\" && NODE_ENV=production sequelize-cli db:migrate",
     "db:migrate:undo": "NODE_ENV=production sequelize-cli db:migrate:undo",
     "db:verify": "node src/config/verifyConnection.js",
+    "db:reset": "node scripts/reset-db.js",
     "postinstall": "echo 'Skipping database verification during installation'",
     "railway:deploy": "npm run db:verify && npm run db:migrate"
   },
