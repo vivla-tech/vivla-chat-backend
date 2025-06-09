@@ -118,7 +118,7 @@ export const getChat = async (req, res) => {
         // Validar datos requeridos
         if (!firebase_uid || !name || !email) {
             return res.status(400).json({
-                error: 'Faltan datos requeridos: firebase_uid, name y email son necesarios'
+                error: 'Faltan datos requeridos: firebase_uid, name y email son necesarios.'
             });
         }
 
