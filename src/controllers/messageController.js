@@ -160,4 +160,49 @@ export const updateMessage = async (req, res) => {
         console.error('Error al actualizar mensaje:', error);
         return res.status(500).json({ error: 'Error al actualizar el mensaje' });
     }
+};
+
+// Webhook para eventos de Chatwoot
+export const chatwootWebhook = async (req, res) => {
+    try {
+        // Log de los headers para verificar la autenticación
+        console.log('Chatwoot Webhook Headers:', {
+            'x-chatwoot-signature': req.headers['x-chatwoot-signature'],
+            'content-type': req.headers['content-type'],
+            'user-agent': req.headers['user-agent']
+        });
+
+        // Log del body completo
+        console.log('Chatwoot Webhook Body:', JSON.stringify(req.body, null, 2));
+
+        // Log de los parámetros específicos que suelen venir en eventos de Chatwoot
+        const {
+            event,
+            conversation,
+            message,
+            contact,
+            account
+        } = req.body;
+
+        console.log('Chatwoot Event Details:', {
+            event,
+            conversationId: conversation?.id,
+            messageId: message?.id,
+            contactId: contact?.id,
+            accountId: account?.id
+        });
+
+        // Respondemos con 200 para indicar que recibimos el webhook correctamente
+        return res.status(200).json({ 
+            status: 'success',
+            message: 'Webhook received successfully'
+        });
+    } catch (error) {
+        console.error('Error processing Chatwoot webhook:', error);
+        return res.status(500).json({ 
+            status: 'error',
+            message: 'Error processing webhook',
+            error: error.message
+        });
+    }
 }; 

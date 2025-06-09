@@ -3,7 +3,8 @@ import {
     createMessage,
     getGroupMessages,
     deleteMessage,
-    updateMessage
+    updateMessage,
+    chatwootWebhook
 } from '../controllers/messageController.js';
 
 const router = express.Router();
@@ -19,5 +20,8 @@ router.delete('/:messageId', deleteMessage);
 
 // Actualizar un mensaje
 router.put('/:messageId', updateMessage);
+
+// Nueva ruta para el webhook de Chatwoot
+router.post('/chatwoot-webhook', chatwootWebhook);
 
 export default router; 
