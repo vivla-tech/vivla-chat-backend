@@ -98,6 +98,7 @@ async function sendMessage(conversationId, content) {
   const payload = { 
     content,
     message_type: 'incoming',
+    sender_type: "contact",
     private: false,
     content_type: "text",
     };
