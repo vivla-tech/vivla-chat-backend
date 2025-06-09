@@ -10,8 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:sync": "node src/config/syncDatabase.js",
     "db:seed:test-user": "node src/seeders/createTestUser.js",
-    "db:migrate": "sequelize-cli db:migrate",
-    "db:migrate:undo": "sequelize-cli db:migrate:undo",
+    "db:migrate": "NODE_ENV=production sequelize-cli db:migrate",
+    "db:migrate:undo": "NODE_ENV=production sequelize-cli db:migrate:undo",
     "postinstall": "npm run db:migrate"
   },
   "author": "",
