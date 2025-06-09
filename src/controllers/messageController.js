@@ -170,37 +170,37 @@ export const chatwootWebhook = async (req, res) => {
 
         // Solo mostrar detalles completos para message_created
         if (event === 'message_created') {
-            // console.log('Chatwoot Message Created Event:', {
-            //     id,
-            //     content,
-            //     message_type,
-            //     created_at,
-            //     private: isPrivate,
-            //     source_id,
-            //     content_type,
-            //     content_attributes,
-            //     sender: {
-            //         type: sender?.type,
-            //         id: sender?.id,
-            //         name: sender?.name,
-            //         email: sender?.email
-            //     },
-            //     account: {
-            //         id: account?.id,
-            //         name: account?.name
-            //     },
-            //     conversation: {
-            //         id: conversation?.id,
-            //         status: conversation?.status,
-            //         inbox_id: conversation?.inbox_id
-            //     },
-            //     inbox: {
-            //         id: inbox?.id,
-            //         name: inbox?.name,
-            //         channel_type: inbox?.channel_type
-            //     }
-            // });
-            console.log('Chatwoot Message Created Event:', req.body);
+            console.log('Chatwoot Message Created Event:', {
+                id,
+                content,
+                message_type,
+                created_at,
+                private: isPrivate,
+                source_id,
+                content_type,
+                content_attributes,
+                sender: {
+                    type: sender?.type,
+                    id: sender?.id,
+                    name: sender?.name,
+                    email: sender?.email
+                },
+                account: {
+                    id: account?.id,
+                    name: account?.name
+                },
+                conversation: {
+                    id: conversation?.id,
+                    status: conversation?.status,
+                    inbox_id: conversation?.inbox_id
+                },
+                inbox: {
+                    id: inbox?.id,
+                    name: inbox?.name,
+                    channel_type: inbox?.channel_type
+                }
+            });
+            // console.log('Chatwoot Full Message Created Event:', req.body);
         } else {
             // Para otros eventos, solo mostrar el tipo
             console.log('Chatwoot Event:', { event });
