@@ -7,8 +7,8 @@ module.exports = {
         await queryInterface.createTable('users', {
             id: {
                 type: Sequelize.UUID,
-                primaryKey: true,
-                defaultValue: Sequelize.UUIDV4
+                defaultValue: Sequelize.UUIDV4,
+                primaryKey: true
             },
             firebase_uid: {
                 type: Sequelize.STRING,
@@ -40,12 +40,10 @@ module.exports = {
             },
             created_at: {
                 type: Sequelize.DATE,
-                allowNull: false,
                 defaultValue: Sequelize.NOW
             },
             last_activity: {
                 type: Sequelize.DATE,
-                allowNull: false,
                 defaultValue: Sequelize.NOW
             }
         });
@@ -84,7 +82,6 @@ module.exports = {
             },
             created_at: {
                 type: Sequelize.DATE,
-                allowNull: false,
                 defaultValue: Sequelize.NOW
             }
         });
@@ -112,12 +109,12 @@ module.exports = {
                     key: 'group_id'
                 }
             },
-            sender_firebase_uid: {
-                type: Sequelize.STRING,
+            sender_id: {
+                type: Sequelize.UUID,
                 allowNull: false,
                 references: {
                     model: 'users',
-                    key: 'firebase_uid'
+                    key: 'id'
                 }
             },
             message_type: {
@@ -125,17 +122,12 @@ module.exports = {
                 allowNull: false,
                 defaultValue: 'text'
             },
-            text_content: {
+            content: {
                 type: Sequelize.TEXT,
                 allowNull: false
             },
-            media_url: {
-                type: Sequelize.STRING,
-                allowNull: true
-            },
             created_at: {
                 type: Sequelize.DATE,
-                allowNull: false,
                 defaultValue: Sequelize.NOW
             }
         });
@@ -144,8 +136,8 @@ module.exports = {
         await queryInterface.addIndex('messages', ['group_id'], {
             name: 'messages_group_id'
         });
-        await queryInterface.addIndex('messages', ['sender_firebase_uid'], {
-            name: 'messages_sender_firebase_uid'
+        await queryInterface.addIndex('messages', ['sender_id'], {
+            name: 'messages_sender_id'
         });
         await queryInterface.addIndex('messages', ['created_at'], {
             name: 'messages_created_at'
@@ -181,7 +173,6 @@ module.exports = {
             },
             joined_at: {
                 type: Sequelize.DATE,
-                allowNull: false,
                 defaultValue: Sequelize.NOW
             }
         });
@@ -202,14 +193,6 @@ module.exports = {
                 primaryKey: true,
                 autoIncrement: true
             },
-            associated_group_id: {
-                type: Sequelize.INTEGER,
-                allowNull: false,
-                references: {
-                    model: 'groups',
-                    key: 'group_id'
-                }
-            },
             email: {
                 type: Sequelize.STRING,
                 allowNull: false,
@@ -219,22 +202,21 @@ module.exports = {
                 type: Sequelize.STRING,
                 allowNull: false
             },
+            associated_group_id: {
+                type: Sequelize.INTEGER,
+                allowNull: false,
+                references: {
+                    model: 'groups',
+                    key: 'group_id'
+                }
+            },
             magic_token: {
                 type: Sequelize.TEXT,
                 allowNull: false,
                 unique: true
             },
-            status: {
-                type: Sequelize.STRING,
-                allowNull: false,
-                defaultValue: 'pending',
-                validate: {
-                    isIn: [['pending', 'accepted', 'rejected']]
-                }
-            },
             created_at: {
                 type: Sequelize.DATE,
-                allowNull: false,
                 defaultValue: Sequelize.NOW
             },
             last_seen_at: {
