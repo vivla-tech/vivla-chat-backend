@@ -118,7 +118,9 @@ async function resetDatabase() {
         const migrations = [
             '20240600000016_create_users_table.cjs',
             '20240600000017_create_groups_table.cjs',
-            '20240600000018_create_messages_table.cjs'
+            '20240600000018_create_messages_table.cjs',
+            '20240600000019_create_group_members_table.cjs',
+            '20240600000020_create_invited_guests_table.cjs'
         ];
 
         // Ejecutar cada migración en orden
