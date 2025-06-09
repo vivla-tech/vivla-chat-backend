@@ -3,13 +3,6 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
-        // Verificar si la tabla ya existe
-        const tables = await queryInterface.showAllTables();
-        if (tables.includes('users')) {
-            console.log('La tabla users ya existe, saltando creación...');
-            return;
-        }
-
         await queryInterface.createTable('users', {
             id: {
                 type: Sequelize.UUID,
