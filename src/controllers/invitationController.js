@@ -1,11 +1,14 @@
 import { InvitedGuest, Group, User } from '../models/index.js';
 import { auth } from '../config/firebase.js';
 import crypto from 'crypto';
+import dotenv from 'dotenv';
+
+// Cargar variables de entorno
+dotenv.config({ path: '.env.local' });
 
 // URL base para desarrollo local
 const getBaseUrl = () => {
-    // Siempre usar el dominio de Firebase Hosting que ya está autorizado
-    return 'https://notifications-devs-74gq5b.web.app';
+    return process.env.FRONTEND_URL || 'exp://192.168.1.43:8081';
 };
 
 // Función auxiliar para generar token mágico
@@ -30,8 +33,9 @@ export const createInvitation = async (req, res) => {
             expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
         });
 
-        // Usando tu IP local
-        const inviteLink = `exp://192.168.1.39:8081/--/join/${token}?email=${email}`;
+        // Usar la URL del frontend desde las variables de entorno
+        const frontendUrl = getBaseUrl();
+        const inviteLink = `${frontendUrl}/--/join/${token}?email=${email}`;
 
         return res.status(201).json({
             success: true,
@@ -55,10 +59,20 @@ export const createInvitation = async (req, res) => {
 
 export const validateInvitation = async (req, res) => {
     try {
-        const { magic_token } = req.params;
+        const { token, email } = req.query;
+
+        if (!token || !email) {
+            return res.status(400).json({
+                error: 'Token y email son requeridos',
+                received: { token, email }
+            });
+        }
 
         const guest = await InvitedGuest.findOne({
-            where: { magic_token },
+            where: {
+                magic_token: token,
+                email: email
+            },
             include: [{
                 model: Group,
                 as: 'group',
@@ -71,7 +85,18 @@ export const validateInvitation = async (req, res) => {
         });
 
         if (!guest) {
-            return res.status(404).json({ error: 'Invitación no válida o expirada' });
+            return res.status(404).json({
+                error: 'Invitación no válida o expirada',
+                details: 'No se encontró una invitación con el token y email proporcionados'
+            });
+        }
+
+        // Verificar si la invitación ha expirado
+        if (guest.expires_at && new Date(guest.expires_at) < new Date()) {
+            return res.status(410).json({
+                error: 'Invitación expirada',
+                details: 'La invitación ha expirado'
+            });
         }
 
         // Actualizar last_seen_at
@@ -92,7 +117,10 @@ export const validateInvitation = async (req, res) => {
         });
     } catch (error) {
         console.error('Error al validar invitación:', error);
-        return res.status(500).json({ error: 'Error al validar la invitación' });
+        return res.status(500).json({
+            error: 'Error al validar la invitación',
+            details: error.message
+        });
     }
 };
 
@@ -115,5 +143,96 @@ export const getGroupInvitations = async (req, res) => {
     } catch (error) {
         console.error('Error al obtener invitaciones:', error);
         return res.status(500).json({ error: 'Error al obtener las invitaciones' });
+    }
+};
+
+export const processInvitation = async (req, res) => {
+    try {
+        const { token, email } = req.body;
+        const authHeader = req.headers.authorization;
+
+        if (!token || !email) {
+            return res.status(400).json({
+                error: 'Token y email son requeridos',
+                received: { token, email }
+            });
+        }
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({
+                error: 'Token de autorización requerido',
+                details: 'Se requiere un token de Firebase válido'
+            });
+        }
+
+        // Verificar el token de Firebase y obtener el usuario
+        const firebaseToken = authHeader.split('Bearer ')[1];
+        const decodedToken = await auth.verifyIdToken(firebaseToken);
+        const firebaseUid = decodedToken.uid;
+
+        // Buscar el usuario en la base de datos
+        const user = await User.findOne({
+            where: { firebase_uid: firebaseUid }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                error: 'Usuario no encontrado',
+                details: 'No se encontró un usuario asociado al token de Firebase'
+            });
+        }
+
+        // Buscar la invitación
+        const guest = await InvitedGuest.findOne({
+            where: {
+                magic_token: token,
+                email: email,
+                status: 'pending'
+            },
+            include: [{
+                model: Group,
+                as: 'group'
+            }]
+        });
+
+        if (!guest) {
+            return res.status(404).json({
+                error: 'Invitación no válida o ya procesada',
+                details: 'No se encontró una invitación pendiente con el token y email proporcionados'
+            });
+        }
+
+        // Verificar si la invitación ha expirado
+        if (guest.expires_at && new Date(guest.expires_at) < new Date()) {
+            return res.status(410).json({
+                error: 'Invitación expirada',
+                details: 'La invitación ha expirado'
+            });
+        }
+
+        // Actualizar el estado de la invitación
+        guest.status = 'accepted';
+        guest.accepted_at = new Date();
+        guest.accepted_by_user_id = user.id;
+        await guest.save();
+
+        // Añadir el usuario al grupo
+        const group = guest.group;
+        await group.addUser(user.id);
+
+        return res.json({
+            success: true,
+            message: 'Invitación procesada exitosamente',
+            group: {
+                group_id: group.group_id,
+                name: group.name
+            }
+        });
+    } catch (error) {
+        console.error('Error al procesar invitación:', error);
+        return res.status(500).json({
+            error: 'Error al procesar la invitación',
+            details: error.message
+        });
     }
 }; 

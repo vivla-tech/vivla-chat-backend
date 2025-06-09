@@ -14,7 +14,7 @@ import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
 const createOrUpdateUser = async (userData, sourceId, contactId) => {
     const { firebase_uid, name, email } = userData;
     let user = await User.findOne({ where: { firebase_uid } });
-    
+
     if (!user) {
         user = await User.create({
             firebase_uid,
@@ -30,7 +30,7 @@ const createOrUpdateUser = async (userData, sourceId, contactId) => {
             cw_contact_id: contactId
         });
     }
-    
+
     return user;
 };
 
@@ -61,7 +61,7 @@ const getOrCreateConversation = async (user) => {
  */
 const getOrCreateGroup = async (ownerUser, conversationId) => {
     let group = await Group.findOne({ where: { owner_firebase_uid: ownerUser.firebase_uid } });
-    
+
     if (!group) {
         group = await Group.create({
             name: `${ownerUser.name}'s Chat`,
@@ -73,7 +73,7 @@ const getOrCreateGroup = async (ownerUser, conversationId) => {
             cw_conversation_id: conversationId
         });
     }
-    
+
     return group;
 };
 
@@ -98,6 +98,12 @@ const addUserToGroup = async (group, firebase_uid, isInvited) => {
             firebase_uid: firebase_uid,
             role: isInvited ? 'member' : 'owner'
         });
+
+        // Actualizar el group_id del usuario
+        await User.update(
+            { group_id: group.group_id },
+            { where: { firebase_uid: firebase_uid } }
+        );
     }
 
     return groupMember;

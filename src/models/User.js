@@ -45,6 +45,14 @@ const User = sequelize.define('User', {
     last_activity: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
+    },
+    group_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'groups',
+            key: 'group_id'
+        }
     }
 }, {
     timestamps: true,
@@ -52,5 +60,13 @@ const User = sequelize.define('User', {
     updatedAt: 'last_activity',
     tableName: 'users'
 });
+
+// Añadir la asociación con Group
+User.associate = (models) => {
+    User.belongsTo(models.Group, {
+        foreignKey: 'group_id',
+        as: 'group'
+    });
+};
 
 export default User; 

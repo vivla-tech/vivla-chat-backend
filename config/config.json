@@ -1,7 +1,7 @@
 {
   "development": {
-    "username": "vivla_user",
-    "password": "tu_password_segura",
+    "username": "oscar",
+    "password": "postgres",
     "database": "vivla_chat",
     "host": "localhost",
     "port": 5432,
