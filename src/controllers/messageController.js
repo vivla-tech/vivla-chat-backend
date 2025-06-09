@@ -200,7 +200,7 @@ export const chatwootWebhook = async (req, res) => {
             //         channel_type: inbox?.channel_type
             //     }
             // });
-            console.log('Chatwoot Message Created Event:', res.body);
+            console.log('Chatwoot Message Created Event:', req.body);
         } else {
             // Para otros eventos, solo mostrar el tipo
             console.log('Chatwoot Event:', { event });
