@@ -3,6 +3,13 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
+        // Verificar si la tabla ya existe
+        const tables = await queryInterface.showAllTables();
+        if (tables.includes('users')) {
+            console.log('La tabla users ya existe, saltando creación...');
+            return;
+        }
+
         await queryInterface.createTable('users', {
             id: {
                 type: Sequelize.UUID,
@@ -39,9 +46,21 @@ module.exports = {
             }
         });
 
-        // Añadir índices
-        await queryInterface.addIndex('users', ['firebase_uid']);
-        await queryInterface.addIndex('users', ['email']);
+        // Verificar si los índices existen antes de crearlos
+        const indexes = await queryInterface.showIndex('users');
+        const indexNames = indexes.map(index => index.name);
+
+        if (!indexNames.includes('users_firebase_uid')) {
+            await queryInterface.addIndex('users', ['firebase_uid'], {
+                name: 'users_firebase_uid'
+            });
+        }
+
+        if (!indexNames.includes('users_email')) {
+            await queryInterface.addIndex('users', ['email'], {
+                name: 'users_email'
+            });
+        }
     },
 
     async down(queryInterface, Sequelize) {

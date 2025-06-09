@@ -3,6 +3,13 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
+        // Verificar si la tabla ya existe
+        const tables = await queryInterface.showAllTables();
+        if (tables.includes('groups')) {
+            console.log('La tabla groups ya existe, saltando creación...');
+            return;
+        }
+
         await queryInterface.createTable('groups', {
             id: {
                 type: Sequelize.UUID,
@@ -37,9 +44,21 @@ module.exports = {
             }
         });
 
-        // Añadir índices
-        await queryInterface.addIndex('groups', ['owner_id']);
-        await queryInterface.addIndex('groups', ['conversation_id']);
+        // Verificar si los índices existen antes de crearlos
+        const indexes = await queryInterface.showIndex('groups');
+        const indexNames = indexes.map(index => index.name);
+
+        if (!indexNames.includes('groups_owner_id')) {
+            await queryInterface.addIndex('groups', ['owner_id'], {
+                name: 'groups_owner_id'
+            });
+        }
+
+        if (!indexNames.includes('groups_conversation_id')) {
+            await queryInterface.addIndex('groups', ['conversation_id'], {
+                name: 'groups_conversation_id'
+            });
+        }
     },
 
     async down(queryInterface, Sequelize) {

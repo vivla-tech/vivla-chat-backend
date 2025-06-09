@@ -3,6 +3,13 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
     async up(queryInterface, Sequelize) {
+        // Verificar si la tabla ya existe
+        const tables = await queryInterface.showAllTables();
+        if (tables.includes('messages')) {
+            console.log('La tabla messages ya existe, saltando creación...');
+            return;
+        }
+
         await queryInterface.createTable('messages', {
             id: {
                 type: Sequelize.UUID,
@@ -46,10 +53,27 @@ module.exports = {
             }
         });
 
-        // Añadir índices
-        await queryInterface.addIndex('messages', ['group_id']);
-        await queryInterface.addIndex('messages', ['sender_id']);
-        await queryInterface.addIndex('messages', ['created_at']);
+        // Verificar si los índices existen antes de crearlos
+        const indexes = await queryInterface.showIndex('messages');
+        const indexNames = indexes.map(index => index.name);
+
+        if (!indexNames.includes('messages_group_id')) {
+            await queryInterface.addIndex('messages', ['group_id'], {
+                name: 'messages_group_id'
+            });
+        }
+
+        if (!indexNames.includes('messages_sender_id')) {
+            await queryInterface.addIndex('messages', ['sender_id'], {
+                name: 'messages_sender_id'
+            });
+        }
+
+        if (!indexNames.includes('messages_created_at')) {
+            await queryInterface.addIndex('messages', ['created_at'], {
+                name: 'messages_created_at'
+            });
+        }
     },
 
     async down(queryInterface, Sequelize) {
