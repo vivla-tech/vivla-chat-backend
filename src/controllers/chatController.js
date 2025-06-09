@@ -185,6 +185,6 @@ export const getChat = async (req, res) => {
         return res.json(chat);
     } catch (error) {
         console.error('Error al obtener chat:', error);
-        return res.status(500).json({ error: 'Error al obtener el chat' });
+        return res.status(500).json({ error: 'Error al obtener el chat' + error.message });
     }
 }; 
