@@ -8,11 +8,30 @@
     "dialect": "postgres"
   },
   "test": {
-    "use_env_variable": "DATABASE_URL",
-    "dialect": "postgres"
+    "use_env_variable": "DATABASE_PUBLIC_URL",
+    "dialect": "postgres",
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
   },
   "production": {
-    "use_env_variable": "DATABASE_URL",
-    "dialect": "postgres"
+    "use_env_variable": "DATABASE_PUBLIC_URL",
+    "dialect": "postgres",
+    "protocol": "postgres",
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    },
+    "pool": {
+      "max": 5,
+      "min": 0,
+      "acquire": 30000,
+      "idle": 10000
+    }
   }
 } 
