@@ -26,14 +26,24 @@ module.exports = {
             },
             house_name: {
                 type: Sequelize.STRING,
-                allowNull: true
+                allowNull: false
+            },
+            cw_source_id: {
+                type: Sequelize.STRING,
+                allowNull: true,
+                comment: 'Chatwoot source ID para el usuario'
+            },
+            cw_contact_id: {
+                type: Sequelize.STRING,
+                allowNull: true,
+                comment: 'Chatwoot contact ID para el usuario'
             },
             created_at: {
                 type: Sequelize.DATE,
                 allowNull: false,
                 defaultValue: Sequelize.NOW
             },
-            updated_at: {
+            last_activity: {
                 type: Sequelize.DATE,
                 allowNull: false,
                 defaultValue: Sequelize.NOW
@@ -50,33 +60,29 @@ module.exports = {
 
         // 2. Crear tabla groups
         await queryInterface.createTable('groups', {
-            id: {
-                type: Sequelize.UUID,
+            group_id: {
+                type: Sequelize.INTEGER,
                 primaryKey: true,
-                defaultValue: Sequelize.UUIDV4
+                autoIncrement: true
             },
             name: {
                 type: Sequelize.STRING,
                 allowNull: false
             },
-            owner_id: {
-                type: Sequelize.UUID,
+            owner_firebase_uid: {
+                type: Sequelize.STRING,
                 allowNull: false,
                 references: {
                     model: 'users',
-                    key: 'id'
+                    key: 'firebase_uid'
                 }
             },
-            conversation_id: {
-                type: Sequelize.INTEGER,
-                allowNull: true
+            cw_conversation_id: {
+                type: Sequelize.STRING,
+                allowNull: true,
+                comment: 'Chatwoot conversation ID para el grupo'
             },
             created_at: {
-                type: Sequelize.DATE,
-                allowNull: false,
-                defaultValue: Sequelize.NOW
-            },
-            updated_at: {
                 type: Sequelize.DATE,
                 allowNull: false,
                 defaultValue: Sequelize.NOW
@@ -84,11 +90,11 @@ module.exports = {
         });
 
         // Índices para groups
-        await queryInterface.addIndex('groups', ['owner_id'], {
-            name: 'groups_owner_id'
+        await queryInterface.addIndex('groups', ['owner_firebase_uid'], {
+            name: 'groups_owner_firebase_uid'
         });
-        await queryInterface.addIndex('groups', ['conversation_id'], {
-            name: 'groups_conversation_id'
+        await queryInterface.addIndex('groups', ['cw_conversation_id'], {
+            name: 'groups_cw_conversation_id'
         });
 
         // 3. Crear tabla messages
@@ -99,19 +105,19 @@ module.exports = {
                 defaultValue: Sequelize.UUIDV4
             },
             group_id: {
-                type: Sequelize.UUID,
+                type: Sequelize.INTEGER,
                 allowNull: false,
                 references: {
                     model: 'groups',
-                    key: 'id'
+                    key: 'group_id'
                 }
             },
-            sender_id: {
-                type: Sequelize.UUID,
+            sender_firebase_uid: {
+                type: Sequelize.STRING,
                 allowNull: false,
                 references: {
                     model: 'users',
-                    key: 'id'
+                    key: 'firebase_uid'
                 }
             },
             message_type: {
@@ -119,16 +125,15 @@ module.exports = {
                 allowNull: false,
                 defaultValue: 'text'
             },
-            content: {
+            text_content: {
                 type: Sequelize.TEXT,
                 allowNull: false
             },
-            created_at: {
-                type: Sequelize.DATE,
-                allowNull: false,
-                defaultValue: Sequelize.NOW
+            media_url: {
+                type: Sequelize.STRING,
+                allowNull: true
             },
-            updated_at: {
+            created_at: {
                 type: Sequelize.DATE,
                 allowNull: false,
                 defaultValue: Sequelize.NOW
@@ -139,8 +144,8 @@ module.exports = {
         await queryInterface.addIndex('messages', ['group_id'], {
             name: 'messages_group_id'
         });
-        await queryInterface.addIndex('messages', ['sender_id'], {
-            name: 'messages_sender_id'
+        await queryInterface.addIndex('messages', ['sender_firebase_uid'], {
+            name: 'messages_sender_firebase_uid'
         });
         await queryInterface.addIndex('messages', ['created_at'], {
             name: 'messages_created_at'
@@ -149,24 +154,24 @@ module.exports = {
         // 4. Crear tabla group_members
         await queryInterface.createTable('group_members', {
             id: {
-                type: Sequelize.UUID,
+                type: Sequelize.INTEGER,
                 primaryKey: true,
-                defaultValue: Sequelize.UUIDV4
+                autoIncrement: true
             },
             group_id: {
-                type: Sequelize.UUID,
+                type: Sequelize.INTEGER,
                 allowNull: false,
                 references: {
                     model: 'groups',
-                    key: 'id'
+                    key: 'group_id'
                 }
             },
-            user_id: {
-                type: Sequelize.UUID,
+            firebase_uid: {
+                type: Sequelize.STRING,
                 allowNull: false,
                 references: {
                     model: 'users',
-                    key: 'id'
+                    key: 'firebase_uid'
                 }
             },
             role: {
@@ -174,12 +179,7 @@ module.exports = {
                 allowNull: false,
                 defaultValue: 'member'
             },
-            created_at: {
-                type: Sequelize.DATE,
-                allowNull: false,
-                defaultValue: Sequelize.NOW
-            },
-            updated_at: {
+            joined_at: {
                 type: Sequelize.DATE,
                 allowNull: false,
                 defaultValue: Sequelize.NOW
@@ -187,39 +187,40 @@ module.exports = {
         });
 
         // Índices para group_members
-        await queryInterface.addIndex('group_members', ['group_id', 'user_id'], {
+        await queryInterface.addIndex('group_members', ['group_id', 'firebase_uid'], {
             unique: true,
             name: 'group_members_unique'
         });
-        await queryInterface.addIndex('group_members', ['user_id'], {
-            name: 'group_members_user_id'
+        await queryInterface.addIndex('group_members', ['firebase_uid'], {
+            name: 'group_members_firebase_uid'
         });
 
         // 5. Crear tabla invited_guests
         await queryInterface.createTable('invited_guests', {
-            id: {
-                type: Sequelize.UUID,
+            guest_id: {
+                type: Sequelize.INTEGER,
                 primaryKey: true,
-                defaultValue: Sequelize.UUIDV4
+                autoIncrement: true
             },
-            group_id: {
-                type: Sequelize.UUID,
+            associated_group_id: {
+                type: Sequelize.INTEGER,
                 allowNull: false,
                 references: {
                     model: 'groups',
-                    key: 'id'
+                    key: 'group_id'
                 }
             },
             email: {
                 type: Sequelize.STRING,
-                allowNull: false
+                allowNull: false,
+                unique: true
             },
             name: {
                 type: Sequelize.STRING,
                 allowNull: false
             },
             magic_token: {
-                type: Sequelize.STRING,
+                type: Sequelize.TEXT,
                 allowNull: false,
                 unique: true
             },
@@ -236,16 +237,15 @@ module.exports = {
                 allowNull: false,
                 defaultValue: Sequelize.NOW
             },
-            updated_at: {
+            last_seen_at: {
                 type: Sequelize.DATE,
-                allowNull: false,
-                defaultValue: Sequelize.NOW
+                allowNull: true
             }
         });
 
         // Índices para invited_guests
-        await queryInterface.addIndex('invited_guests', ['group_id'], {
-            name: 'invited_guests_group_id'
+        await queryInterface.addIndex('invited_guests', ['associated_group_id'], {
+            name: 'invited_guests_associated_group_id'
         });
         await queryInterface.addIndex('invited_guests', ['email'], {
             name: 'invited_guests_email'
