@@ -314,15 +314,27 @@ async function sendPublicMessage(client_id, conversation_id, content) {
 // Controlador principal para enviar mensajes
 export const sendMessage = async (req, res) => {
     try {
-        const { conversation_id, content, client_id } = req.body;
+        const { conversation_id, content, client_id, user_id } = req.body;
+
+        // Buscar el usuario por su ID
+        const user = await User.findByPk(user_id);
+        if (!user) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        // Concatenar el nombre del usuario al contenido del mensaje
+        const messageContent = `**${user.name}**\n\n${content}`;
 
         let response;
         if (client_id) {
             // Si viene client_id, usar la API pública
-            response = await sendPublicMessage(client_id, conversation_id, content);
+            response = await sendPublicMessage(client_id, conversation_id, messageContent);
         } else {
             // Si no viene client_id, usar la API interna
-            response = await sendInternalMessage(conversation_id, content);
+            response = await sendInternalMessage(conversation_id, messageContent);
         }
 
         return res.status(200).json({

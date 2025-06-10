@@ -192,7 +192,7 @@ export const getChat = async (req, res) => {
         const chat = {
             user_id: user_id,
             cw_contact_id: contact.id,
-            cw_conversation_id: conversation.id,
+            // cw_conversation_id: conversation.id,
             messages: conversation.messages,
             owner: {
                 id: ownerUser.id,
