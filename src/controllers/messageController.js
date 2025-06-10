@@ -136,32 +136,32 @@ import { sendClientMessage, sendMessage as chatwootSendMessage } from '../servic
 // };
 
 // Actualizar un mensaje (solo el contenido)
-export const updateMessage = async (req, res) => {
-    try {
-        const { messageId } = req.params;
-        const { text_content, media_url, firebase_uid } = req.body;
+// export const updateMessage = async (req, res) => {
+//     try {
+//         const { messageId } = req.params;
+//         const { text_content, media_url, firebase_uid } = req.body;
 
-        const message = await Message.findByPk(messageId);
-        if (!message) {
-            return res.status(404).json({ error: 'Mensaje no encontrado' });
-        }
+//         const message = await Message.findByPk(messageId);
+//         if (!message) {
+//             return res.status(404).json({ error: 'Mensaje no encontrado' });
+//         }
 
-        // Solo el remitente puede editar el mensaje
-        if (message.sender_firebase_uid !== firebase_uid) {
-            return res.status(403).json({ error: 'No tienes permiso para editar este mensaje' });
-        }
+//         // Solo el remitente puede editar el mensaje
+//         if (message.sender_firebase_uid !== firebase_uid) {
+//             return res.status(403).json({ error: 'No tienes permiso para editar este mensaje' });
+//         }
 
-        // Actualizar solo los campos permitidos
-        if (text_content !== undefined) message.text_content = text_content;
-        if (media_url !== undefined) message.media_url = media_url;
+//         // Actualizar solo los campos permitidos
+//         if (text_content !== undefined) message.text_content = text_content;
+//         if (media_url !== undefined) message.media_url = media_url;
 
-        await message.save();
-        return res.json(message);
-    } catch (error) {
-        console.error('Error al actualizar mensaje:', error);
-        return res.status(500).json({ error: 'Error al actualizar el mensaje' });
-    }
-};
+//         await message.save();
+//         return res.json(message);
+//     } catch (error) {
+//         console.error('Error al actualizar mensaje:', error);
+//         return res.status(500).json({ error: 'Error al actualizar el mensaje' });
+//     }
+// };
 
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
@@ -201,23 +201,29 @@ export const chatwootWebhook = async (req, res) => {
                 }
             });
             if(message_type === 'incoming') {
-                // Es mensaje de usuario
-                // Buscar el User en la tabla de Users, si no existe devuelve un error
-                // const user = await User.findOne({ where: { email: sender.email } });
-                // if(!user) {
-                //     return res.status(404).json({ error: 'Usuario no encontrado' });
-                // }
-                // const group = await Group.findOne({ where: { firebase_uid: conversation.inbox_id } });
-                // if(!group) {
-                //     return res.status(404).json({ error: 'Grupo no encontrado' });
-                // }
-                // // Si si existe, crear un nuevo mensaje en la tabla de Messages
-                // // Crear un nuevo mensaje en la tabla de Messages
-                // const newMessage = await Message.create({
-                //     group_id: conversation.inbox_id,
-                //     sender_firebase_uid: sender.id,
-                //     text_content: content,
-                // });
+                const user = await User.findOne({ where: { email: sender.email } });
+                if(!user) {
+                    return res.status(404).json({ error: 'Usuario no encontrado' });
+                }
+                const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
+                if(!group) {
+                    return res.status(404).json({ error: 'Grupo no encontrado' });
+                }
+                
+                // Crear un nuevo mensaje en la tabla de Messages
+                const newMessage = await Message.create({
+                    group_id: group.group_id,
+                    sender_id: user.id,
+                    message_type: 'text',
+                    content: content
+                });
+
+                console.log('Nuevo mensaje creado:', {
+                    message_id: newMessage.id,
+                    group_id: group.id,
+                    sender: sender.name,
+                    content: content
+                });
 
             }else if(message_type === 'outgoing') {
 

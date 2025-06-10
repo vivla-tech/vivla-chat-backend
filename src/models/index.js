@@ -22,14 +22,9 @@ Group.hasMany(Message, {
     as: 'messages'
 });
 
-InvitedGuest.hasMany(Message, {
-    foreignKey: 'sender_guest_id',
-    as: 'messages'
-});
-
 User.hasMany(Message, {
-    foreignKey: 'sender_firebase_uid',
-    sourceKey: 'firebase_uid',
+    foreignKey: 'sender_id',
+    sourceKey: 'id',
     as: 'messages'
 });
 

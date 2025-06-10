@@ -155,6 +155,7 @@ export const getChat = async (req, res) => {
         // Verificar si el usuario es un invitado
         const invitedGuest = await InvitedGuest.findOne({ where: { email } });
         let ownerUser;
+        let user_id;
 
         if (invitedGuest) {
             // Si es un invitado, buscar el grupo asociado
@@ -170,10 +171,12 @@ export const getChat = async (req, res) => {
             }
 
             // Crear o actualizar el usuario invitado
-            await createOrUpdateUser({ firebase_uid, name, email }, sourceId, contact.id);
+            const invitedUser = await createOrUpdateUser({ firebase_uid, name, email }, sourceId, contact.id);
+            user_id = invitedUser.id;
         } else {
             // Si no es invitado, usar el usuario actual como owner
             ownerUser = await createOrUpdateUser({ firebase_uid, name, email }, sourceId, contact.id);
+            user_id = ownerUser.id;
         }
 
         // Obtener o crear conversación
@@ -187,8 +190,9 @@ export const getChat = async (req, res) => {
 
         // Devolver estructura del chat
         const chat = {
-            id: contact.id,
-            conversation_id: conversation.id,
+            user_id: user_id,
+            cw_contact_id: contact.id,
+            cw_conversation_id: conversation.id,
             messages: conversation.messages,
             owner: {
                 id: ownerUser.id,
