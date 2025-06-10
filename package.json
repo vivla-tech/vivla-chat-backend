@@ -17,7 +17,8 @@
     "postinstall": "echo 'Skipping database verification during installation'",
     "railway:deploy": "NODE_ENV=production node scripts/drop-all-tables.js && NODE_ENV=production sequelize-cli db:migrate",
     "db:drop-all": "node scripts/drop-all-tables.js",
-    "db:reset-local": "NODE_ENV=development node scripts/drop-all-tables.js && NODE_ENV=development sequelize-cli db:migrate && NODE_ENV=development npm run db:seed:test-user"
+    "db:reset-local": "NODE_ENV=development node scripts/drop-all-tables.js && NODE_ENV=development sequelize-cli db:migrate && NODE_ENV=development npm run db:seed:test-user",
+    "db:migrate:local": "NODE_ENV=development sequelize-cli db:migrate"
   },
   "author": "",
   "license": "ISC",

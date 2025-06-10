@@ -1,12 +1,11 @@
 {
   "development": {
-    "username": "DB_USER",
-    "password": "DB_PASSWORD",
-    "database": "DB_NAME",
-    "host": "DB_HOST",
+    "username": "chat_user",
+    "password": "123456",
+    "database": "vivla_chat",
+    "host": "localhost",
     "port": 5432,
-    "dialect": "postgres",
-    "use_env_variable": "DATABASE_URL"
+    "dialect": "postgres"
   },
   "test": {
     "use_env_variable": "DATABASE_PUBLIC_URL",
