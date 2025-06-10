@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS group_members CASCADE;
 DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS groups CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS "SequelizeMeta" CASCADE;
 
 -- Reactivar las restricciones de clave foránea
 SET session_replication_role = 'origin'; 
