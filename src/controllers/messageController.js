@@ -226,7 +226,29 @@ export const chatwootWebhook = async (req, res) => {
                 });
 
             }else if(message_type === 'outgoing') {
+                const user = await User.findOne({ where: { firebase_uid: '0000' } });
+                if(!user) {
+                    return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
+                }
+                const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
+                if(!group) {
+                    return res.status(404).json({ error: 'Grupo no encontrado' });
+                }
+                
+                // Crear un nuevo mensaje en la tabla de Messages
+                const newMessage = await Message.create({
+                    group_id: group.group_id,
+                    sender_id: user.id,
+                    message_type: 'text',
+                    content: content
+                });
 
+                console.log('Nuevo mensaje creado:', {
+                    message_id: newMessage.id,
+                    group_id: group.id,
+                    sender: sender.name,
+                    content: content
+                });
             }
             // console.log('Chatwoot Full Message Created Event:', req.body);
         } else {
