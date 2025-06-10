@@ -6,7 +6,17 @@ dotenv.config({ path: '.env.local' });
 
 const CHATWOOT_ACCESS_TOKEN = process.env.CHATWOOT_ACCESS_TOKEN;
 const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || 'https://app.chatwoot.com/api/v1';
-const CHATWOOT_ACCOUNT_ID = 2;
+const CHATWOOT_PUBLIC_BASE_URL = process.env.CHATWOOT_PUBLIC_BASE_URL;
+const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID;
+const CHATWOOT_INBOX_ID = process.env.CHATWOOT_INBOX_ID;
+
+// Validar variables de entorno requeridas
+if (!CHATWOOT_ACCOUNT_ID) {
+    console.warn('⚠️ CHATWOOT_ACCOUNT_ID no está definido en las variables de entorno');
+}
+if (!CHATWOOT_INBOX_ID) {
+    console.warn('⚠️ CHATWOOT_INBOX_ID no está definido en las variables de entorno');
+}
 
 // Función auxiliar para realizar peticiones a la API de Chatwoot.
 async function chatwootRequest(endpoint, options = {}) {
@@ -22,6 +32,21 @@ async function chatwootRequest(endpoint, options = {}) {
     throw new Error(`Chatwoot API error (${response.status}): ${errorText}`);
   }
   return await response.json();
+}
+
+async function chatwootPublicRequest(endpoint, options = {}) {
+    const url = `${CHATWOOT_PUBLIC_BASE_URL}${endpoint}`;
+    const headers = {
+        'Content-Type': 'application/json',
+        'api_access_token': CHATWOOT_ACCESS_TOKEN
+    };
+    const fetchOptions = { ...options, headers };
+    const response = await fetch(url, fetchOptions);
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Chatwoot Public API error (${response.status}): ${errorText}`);
+    }
+    return await response.json();
 }
 
 // --- Funciones para interactuar con usuarios ---
@@ -54,6 +79,38 @@ async function listConversations(query = {}) {
   const queryString = new URLSearchParams(query).toString();
   const endpoint = queryString ? `/conversations?${queryString}` : '/conversations';
   return await chatwootRequest(endpoint);
+}
+
+/**
+ * Crea una nueva conversación desde el cliente usando el endpoint público de Chatwoot.
+ * Endpoint: POST /public/api/v1/inboxes/{inbox_id}/contacts/{client_id}/conversations
+ * @param {string} clientId - El ID del cliente/contacto en Chatwoot
+ * @param {Object} [options] - Opciones adicionales para la conversación
+ * @param {string} [options.message] - Mensaje inicial opcional
+ * @returns {Promise<Object>} - La conversación creada
+ */
+async function createClientConversation(clientId, options = {}) { 
+    if (!clientId) {
+        throw new Error('clientId is required');
+    }
+
+    const payload = {
+        ...(options.message && { message: { content: options.message } })
+    };
+
+    try {
+        const response = await chatwootPublicRequest(
+            `/inboxes/${CHATWOOT_INBOX_ID}/contacts/${clientId}/conversations`,
+            {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            }
+        );
+        return response;
+    } catch (error) {
+        console.error('Error creating conversation from client:', error);
+        throw new Error(`Failed to create conversation: ${error.message}`);
+    }
 }
 
 /**
@@ -110,6 +167,49 @@ async function sendMessage(conversationId, content) {
         url
     });
   return await chatwootRequest(url, { method: 'POST', body: JSON.stringify(payload) });
+}
+
+/**
+ * Envía un mensaje desde el cliente a una conversación específica usando la API pública de Chatwoot.
+ * Endpoint: POST /public/api/v1/inboxes/{inbox_identifier}/contacts/{contact_identifier}/conversations/{conversation_id}/messages
+ * @param {string} clientId - El ID del cliente/contacto en Chatwoot
+ * @param {string} conversationId - El ID de la conversación
+ * @param {string} content - El contenido del mensaje
+ * @param {Object} [options] - Opciones adicionales
+ * @param {string} [options.echo_id] - ID de eco opcional para seguimiento
+ * @returns {Promise<Object>} - El mensaje enviado con su ID y detalles
+ * @throws {Error} Si hay un error al enviar el mensaje
+ */
+async function sendClientMessage(clientId, conversationId, content, options = {}) {
+    if (!clientId) {
+        throw new Error('clientId is required');
+    }
+    if (!conversationId) {
+        throw new Error('conversationId is required');
+    }
+    if (!content) {
+        throw new Error('content is required');
+    }
+
+    const payload = {
+        content,
+        ...(options.echo_id && { echo_id: options.echo_id })
+    };
+
+    try {
+        const response = await chatwootPublicRequest(
+            `/inboxes/${CHATWOOT_INBOX_ID}/contacts/${clientId}/conversations/${conversationId}/messages`,
+            {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            }
+        );
+
+        return response;
+    } catch (error) {
+        console.error('Error sending client message:', error);
+        throw new Error(`Failed to send message: ${error.message}`);
+    }
 }
 
 /**
@@ -180,6 +280,50 @@ async function createContactIfNotExists(name, email, phone_number, identifier) {
 }
 
 /**
+ * Obtiene una conversación específica de un cliente usando el endpoint público de Chatwoot.
+ * Endpoint: GET /public/api/v1/inboxes/{inbox_identifier}/contacts/{contact_identifier}/conversations/{conversation_id}
+ * @param {string} clientId - El ID del cliente/contacto en Chatwoot
+ * @param {string} conversationId - El ID de la conversación a obtener
+ * @returns {Promise<Object|null>} - La conversación solicitada o null si no existe
+ * @throws {Error} Si hay un error al obtener la conversación
+ */
+async function getClientSingleConversation(clientId, conversationId) {
+    if (!clientId) {
+        throw new Error('clientId is required');
+    }
+    if (!conversationId) {
+        throw new Error('conversationId is required');
+    }
+
+    try {
+        // https://app.chatwoot.com/public/api/v1/inboxes/{inbox_identifier}/contacts/{contact_identifier}/conversations/{conversation_id}
+        const conversation = await chatwootPublicRequest(
+            `/inboxes/${CHATWOOT_INBOX_ID}/contacts/${clientId}/conversations/${conversationId}`,
+            {
+                method: 'GET'
+            }
+        );
+
+        // Si la conversación no está abierta, la abrimos
+        if (conversation.status !== 'open') {
+            await toggleConversationStatus(conversation.id, 'open');
+        }
+        
+        if (!conversation) {
+            return null;
+        }
+
+        return conversation;
+    } catch (error) {
+        console.error('Error getting client conversation:', error);
+        if (error.message.includes('404')) {
+            return null;
+        }
+        throw new Error(`Failed to get conversation: ${error.message}`);
+    }
+}
+
+/**
  * Obtiene la conversación más reciente de un contacto específico.
  * Endpoint: GET /api/v1/accounts/{account_id}/contacts/{id}/conversations
  * @param {number|string} contactId - El ID del contacto
@@ -234,5 +378,8 @@ export {
     searchContactByEmail,
     createContactIfNotExists,
     getContactConversation,
-    toggleConversationStatus
+    toggleConversationStatus,
+    createClientConversation as createConversationFromClient,
+    getClientSingleConversation,
+    sendClientMessage
 }; 

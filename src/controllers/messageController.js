@@ -1,6 +1,6 @@
 import { Message, User, Group, InvitedGuest } from '../models/index.js';
 import { Op } from 'sequelize';
-import { sendMessage as chatwootSendMessage } from '../services/chatwootService.js';
+import { sendClientMessage, sendMessage as chatwootSendMessage } from '../services/chatwootService.js';
 
 // // Crear un nuevo mensaje
 // export const createMessage = async (req, res) => {
@@ -203,7 +203,21 @@ export const chatwootWebhook = async (req, res) => {
             if(message_type === 'incoming') {
                 // Es mensaje de usuario
                 // Buscar el User en la tabla de Users, si no existe devuelve un error
-                // Si 
+                const user = await User.findOne({ where: { email: sender.email } });
+                if(!user) {
+                    return res.status(404).json({ error: 'Usuario no encontrado' });
+                }
+                const group = await Group.findOne({ where: { firebase_uid: conversation.inbox_id } });
+                if(!group) {
+                    return res.status(404).json({ error: 'Grupo no encontrado' });
+                }
+                // Si si existe, crear un nuevo mensaje en la tabla de Messages
+                // Crear un nuevo mensaje en la tabla de Messages
+                const newMessage = await Message.create({
+                    group_id: conversation.inbox_id,
+                    sender_firebase_uid: sender.id,
+                    text_content: content,
+                });
 
             }else if(message_type === 'outgoing') {
 
@@ -242,18 +256,51 @@ export const sendMessage = async (req, res) => {
         }
 
         console.log('Sending message to Chatwoot:', {
+                        conversation_id,
+            content
+        });
+
+        // Usar el servicio de Chatwoot para enviar el mensaje
+        const response = await chatwootSendMessage(conversation_id, content);   
+        
+        // Devolver la respuesta de Chatwoot
+        return res.status(200).json({
+            status: 'success',
+            message: 'Mensaje enviado correctamente a Chatwoot',
+            data: response
+        });
+
+    } catch (error) {
+        console.error('Error al enviar mensaje a Chatwoot:', error.message);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error al enviar mensaje a Chatwoot',
+            error: error.message
+        });
+    }
+}; 
+
+// Enviar mensaje a Chatwoot usando el servicio existente
+export const sendClientTextMessage = async (req, res) => {
+    try {
+        const { client_id, conversation_id, content } = req.body;
+
+        // Validar datos requeridos
+        if (!client_id || !conversation_id || !content) {
+            return res.status(400).json({
+                error: 'Faltan datos requeridos: conversation_id y content son necesarios'
+            });
+        }
+
+        console.log('Sending message to Chatwoot:', {
+            client_id,
             conversation_id,
             content
         });
 
         // Usar el servicio de Chatwoot para enviar el mensaje
-        const response = await chatwootSendMessage(conversation_id, content);
-
-        // Log de la respuesta para debugging
-        // console.log('Chatwoot API Response:', {
-        //     messageId: response.id,
-        //     status: response.status
-        // });
+        // const response = await chatwootSendMessage(conversation_id, content);   
+        const response = await sendClientMessage(client_id, conversation_id, content);
 
         // Devolver la respuesta de Chatwoot
         return res.status(200).json({

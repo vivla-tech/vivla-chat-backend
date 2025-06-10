@@ -1,4 +1,4 @@
-import { createContactIfNotExists, getContactConversation, createConversation } from '../services/chatwootService.js';
+import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient } from '../services/chatwootService.js';
 import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
 
 /**
@@ -47,10 +47,32 @@ const getOrCreateConversation = async (user) => {
             source_id: user.cw_source_id,
             contact_id: user.cw_contact_id
         });
-        conversation = newConversation;
+    conversation = newConversation;
     }
 
     return conversation;
+};
+
+
+/**
+ * Obtiene o crea una conversación para un usuario usando el API Client
+ * @param {User} user - Usuario para el que obtener/crear la conversación
+ * @returns {Promise<Object>} Conversación obtenida o creada
+ */
+const getOrCreateClientConversation = async (user) => {
+
+    let user_group = await Group.findOne({ where: { owner_firebase_uid: user.firebase_uid } });
+
+    if(!user_group || !user_group.cw_conversation_id) {
+        return await createConversationFromClient(user.cw_source_id);
+    }
+
+    let clientConversation = await getClientSingleConversation(user.cw_source_id, user_group.cw_conversation_id);
+    if(!clientConversation) {
+        return await createConversationFromClient(user.cw_source_id);
+    }
+    return clientConversation;
+
 };
 
 /**
