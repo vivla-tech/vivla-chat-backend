@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import fetch from 'node-fetch';
 import { createClient } from 'node-zendesk';
 import userRoutes from './routes/userRoutes.js';
@@ -8,9 +9,14 @@ import groupRoutes from './routes/groupRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import { websocketService } from './services/websocketService.js';
 
 dotenv.config();
 const app = express();
+const httpServer = createServer(app);
+
+// Inicializar WebSocket
+websocketService.initialize(httpServer);
 
 // Middleware
 app.use(cors());
@@ -1015,6 +1021,7 @@ app.use((err, req, res, next) => {
 });
 
 // Iniciar el servidor
-app.listen(config.PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${config.PORT}`);
+const PORT = process.env.PORT || 3000;
+httpServer.listen(PORT, () => {
+    console.log(`Servidor corriendo en puerto ${PORT}`);
 });
