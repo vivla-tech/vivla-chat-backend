@@ -10,8 +10,15 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "db:sync": "node src/config/syncDatabase.js",
     "db:seed:test-user": "node src/seeders/createTestUser.js",
-    "db:migrate": "sequelize-cli db:migrate",
-    "db:migrate:undo": "sequelize-cli db:migrate:undo"
+    "db:migrate": "node -e \"console.log('DATABASE_PUBLIC_URL:', process.env.DATABASE_PUBLIC_URL ? process.env.DATABASE_PUBLIC_URL.replace(/:[^:@]*@/, ':****@') : 'not set')\" && NODE_ENV=production sequelize-cli db:migrate",
+    "db:migrate:undo": "NODE_ENV=production sequelize-cli db:migrate:undo",
+    "db:verify": "node src/config/verifyConnection.js",
+    "db:reset": "node scripts/reset-db.js",
+    "postinstall": "echo 'Skipping database verification during installation'",
+    "railway:deploy": "NODE_ENV=production sequelize-cli db:migrate",
+    "db:drop-all": "node scripts/drop-all-tables.js",
+    "db:reset-local": "NODE_ENV=development node scripts/drop-all-tables.js && NODE_ENV=development sequelize-cli db:migrate && NODE_ENV=development npm run db:seed:test-user",
+    "db:migrate:local": "NODE_ENV=development sequelize-cli db:migrate"
   },
   "author": "",
   "license": "ISC",
@@ -25,7 +32,8 @@
     "pg": "^8.16.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.7",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "eslint": "^9.26.0",
