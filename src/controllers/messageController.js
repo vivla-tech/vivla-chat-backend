@@ -236,12 +236,17 @@ export const chatwootWebhook = async (req, res) => {
                 if(!group) {
                     return res.status(404).json({ error: 'Grupo no encontrado' });
                 }
+
+                let isBotMessage = false;
+                if(content.includes('🤖')){
+                    isBotMessage = true;
+                }
                 
                 // Crear un nuevo mensaje en la tabla de Messages
                 const newMessage = await Message.create({
                     group_id: group.group_id,
                     sender_id: user.id,
-                    sender_name: 'VIVLA',
+                    sender_name: isBotMessage ? '🤖 VIVLA' : 'VIVLA',
                     message_type: 'text',
                     direction: 'outgoing',
                     content: content
