@@ -21,7 +21,7 @@ export const getGroupMessages = async (req, res) => {
             include: [
                 {
                     model: User,
-                    as: 'messageSender',
+                    as: 'user',
                     attributes: ['name', 'email']
                 }
             ],

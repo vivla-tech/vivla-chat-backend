@@ -77,7 +77,7 @@ Message.belongsTo(Group, {
 Message.belongsTo(User, {
     foreignKey: 'sender_id',
     targetKey: 'id',
-    as: 'messageSender'
+    as: 'user'
 });
 
 // Relaciones de InvitedGuest
