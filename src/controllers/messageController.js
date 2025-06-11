@@ -1,4 +1,4 @@
-import { Message, User, Group, InvitedGuest } from '../models/index.js';
+import { Message, User, Group, GroupMember,InvitedGuest } from '../models/index.js';
 import { Op } from 'sequelize';
 import { sendClientMessage, sendMessage as chatwootSendMessage } from '../services/chatwootService.js';
 
@@ -163,14 +163,33 @@ import { sendClientMessage, sendMessage as chatwootSendMessage } from '../servic
 //     }
 // };
 
-// async function findUserInGroupByContent(group, ownner, msessageContent){
-//     const messageContent = `**${user.name}**\n\n${content}`;
-//     // buscar group_members por group_id
-//     const groupMembers = await GroupMember.findAll({ where: { group_id: group.id } });
-//     // buscar user_id en group_members
-//     const user_id = groupMembers.find(member => member.user_id === ownner.id);
-//     return user_id;
-// }
+async function findUserInGroupByContent(group, owner, messageContent) {
+    try {
+        // Obtener todos los miembros del grupo incluyendo la información del usuario
+        const groupMembers = await GroupMember.findAll({
+            where: { group_id: group.group_id },
+            include: [{
+                model: User,
+                as: 'member',
+                attributes: ['id', 'name']
+            }]
+        });
+
+        // Buscar el usuario cuyo nombre aparece en el mensaje
+        for (const member of groupMembers) {
+            const userName = member.member.name;
+            // Buscar el patrón **nombre** en el mensaje
+            if (messageContent.includes(`**${userName}**`)) {
+                return member.member; // Devolver el usuario encontrado
+            }
+        }
+
+        return owner; // Si no se encuentra ningún usuario que coincida
+    } catch (error) {
+        console.error('Error en findUserInGroupByContent:', error);
+        return null;
+    }
+}
 
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
@@ -210,19 +229,21 @@ export const chatwootWebhook = async (req, res) => {
                 }
             });
             if(message_type === 'incoming') {
-                const user = await User.findOne({ where: { email: sender.email } });
-                if(!user) {
+                const ownerUser = await User.findOne({ where: { email: sender.email } });
+                if(!ownerUser) {
                     return res.status(404).json({ error: 'Usuario no encontrado' });
                 }
                 const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
                 if(!group) {
                     return res.status(404).json({ error: 'Grupo no encontrado' });
                 }
+
+                const senderUser = await findUserInGroupByContent(group, ownerUser, content);
                 
                 // Crear un nuevo mensaje en la tabla de Messages
                 const newMessage = await Message.create({
                     group_id: group.group_id,
-                    sender_id: user.id,
+                    sender_id: senderUser.id,
                     message_type: 'text',
                     content: content
                 });
@@ -230,7 +251,7 @@ export const chatwootWebhook = async (req, res) => {
                 console.log('Nuevo mensaje creado:', {
                     message_id: newMessage.id,
                     group_id: group.id,
-                    sender: sender.name,
+                    sender: senderUser.name,
                     content: content
                 });
 
