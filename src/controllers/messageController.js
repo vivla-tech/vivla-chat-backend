@@ -174,7 +174,7 @@ export const chatwootWebhook = async (req, res) => {
         const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox } = req.body;
 
         // Solo mostrar detalles completos para message_created
-        if (event === 'message_created') {
+        if (event === 'message_created' && !isPrivate) {
             console.log('Chatwoot Message Created Event:', {
                 id,
                 content,
