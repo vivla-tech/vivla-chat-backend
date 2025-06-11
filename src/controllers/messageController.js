@@ -191,6 +191,31 @@ async function findUserInGroupByContent(group, owner, messageContent) {
     }
 }
 
+function getMessageParts(content, defaultUserName) {
+    // Verificar si el contenido sigue el patrón "**Nombre**\n\nContenido"
+    const parts = content.split('**');
+    
+    // Si no hay suficientes partes o no sigue el patrón, devolver el default
+    if (parts.length < 3) {
+        return {
+            name: defaultUserName,
+            content: content
+        };
+    }
+
+    // Extraer el nombre (está entre los primeros **)
+    const name = parts[1].trim();
+    
+    // El contenido está después del segundo **
+    // Eliminamos el nombre y los ** del contenido original
+    const contentWithoutName = content.replace(`**${name}**\n\n`, '').trim();
+
+    return {
+        name: name || defaultUserName,
+        content: contentWithoutName || content
+    };
+}
+
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
     try {
@@ -239,14 +264,16 @@ export const chatwootWebhook = async (req, res) => {
                 }
 
                 const senderUser = await findUserInGroupByContent(group, ownerUser, content);
+                const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
                 
                 // Crear un nuevo mensaje en la tabla de Messages
                 const newMessage = await Message.create({
                     group_id: group.group_id,
                     sender_id: senderUser.id,
+                    sender_name: senderName,
                     message_type: 'text',
                     direction: 'incoming',
-                    content: content
+                    content: messageContent
                 });
 
                 console.log('Nuevo mensaje creado:', {
@@ -270,9 +297,10 @@ export const chatwootWebhook = async (req, res) => {
                 const newMessage = await Message.create({
                     group_id: group.group_id,
                     sender_id: user.id,
+                    sender_name: 'VIVLA',
                     message_type: 'text',
                     direction: 'outgoing',
-                    content: `**VIVLA**\n\n${content}`
+                    content: content
                 });
 
                 console.log('Nuevo mensaje creado:', {

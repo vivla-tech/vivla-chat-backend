@@ -23,6 +23,10 @@ const Message = sequelize.define('Message', {
             key: 'id'
         }
     },
+    sender_name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     message_type: {
         type: DataTypes.STRING,
         allowNull: false,
