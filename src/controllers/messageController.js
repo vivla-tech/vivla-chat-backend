@@ -160,6 +160,10 @@ function getMessageParts(content, defaultUserName) {
     };
 }
 
+function cleanBotMessage(content) {
+    return content.replace('🤖', '').trim();
+}
+
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
     try {
@@ -241,6 +245,7 @@ export const chatwootWebhook = async (req, res) => {
                 if(content.includes('🤖')){
                     isBotMessage = true;
                 }
+                const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
                 
                 // Crear un nuevo mensaje en la tabla de Messages
                 const newMessage = await Message.create({
@@ -249,14 +254,14 @@ export const chatwootWebhook = async (req, res) => {
                     sender_name: isBotMessage ? '🤖 VIVLA' : 'VIVLA',
                     message_type: 'text',
                     direction: 'outgoing',
-                    content: content
+                    content: cleanContent
                 });
 
                 console.log('Nuevo mensaje creado:', {
                     message_id: newMessage.id,
                     group_id: group.id,
                     sender: sender.name,
-                    content: content
+                    content: cleanContent
                 });
             }
             // console.log('Chatwoot Full Message Created Event:', req.body);
