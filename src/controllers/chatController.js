@@ -167,7 +167,7 @@ export const getChat = async (req, res) => {
             }
 
             // Buscar el owner del grupo
-            ownerUser = await User.findOne({ where: { firebase_uid: group.owner_firebase_uid } });
+            ownerUser = await User.findOne({ where: { id: group.user_id } });
             if (!ownerUser) {
                 return res.status(404).json({ error: 'owner_not_found' });
             }
