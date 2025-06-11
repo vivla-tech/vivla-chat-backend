@@ -245,6 +245,7 @@ export const chatwootWebhook = async (req, res) => {
                     group_id: group.group_id,
                     sender_id: senderUser.id,
                     message_type: 'text',
+                    direction: 'incoming',
                     content: content
                 });
 
@@ -270,6 +271,7 @@ export const chatwootWebhook = async (req, res) => {
                     group_id: group.group_id,
                     sender_id: user.id,
                     message_type: 'text',
+                    direction: 'outgoing',
                     content: `**VIVLA**\n\n${content}`
                 });
 

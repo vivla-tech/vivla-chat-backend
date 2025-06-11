@@ -28,6 +28,14 @@ const Message = sequelize.define('Message', {
         allowNull: false,
         defaultValue: 'text'
     },
+    direction: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'incoming',
+        validate: {
+            isIn: [['incoming', 'outgoing']]
+        }
+    },
     content: {
         type: DataTypes.TEXT,
         allowNull: false
