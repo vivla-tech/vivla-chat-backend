@@ -39,18 +39,22 @@ export const createGroup = async (req, res) => {
 export const getGroupById = async (req, res) => {
     try {
         const { groupId } = req.params;
-        const group = await Group.findByPk(groupId, {
+        const firebase_uid = req.user?.uid;
+
+        if (!firebase_uid) {
+            return res.status(401).json({ error: 'No autorizado' });
+        }
+
+        // Verificar que el usuario tiene acceso al grupo
+        const user = await User.findOne({ where: { firebase_uid } });
+        if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        // Obtener el grupo con toda su información
+        const group = await Group.findOne({
+            where: { group_id: groupId },
             include: [
-                {
-                    model: User,
-                    as: 'owner',
-                    attributes: ['name', 'email', 'house_name']
-                },
-                {
-                    model: InvitedGuest,
-                    as: 'guests',
-                    attributes: ['guest_id', 'name', 'email', 'last_seen_at']
-                },
                 {
                     model: GroupMember,
                     as: 'members',
@@ -69,7 +73,29 @@ export const getGroupById = async (req, res) => {
             return res.status(404).json({ error: 'Grupo no encontrado' });
         }
 
-        return res.json(group);
+        // Verificar que el usuario tiene acceso al grupo (es owner o miembro)
+        const hasAccess = group.owner_firebase_uid === firebase_uid ||
+            group.members.some(m => m.firebase_uid === firebase_uid);
+
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'No tienes acceso a este grupo' });
+        }
+
+        // Mapear los miembros con sus roles
+        const members = group.members.map(member => ({
+            id: member.member.firebase_uid,
+            name: member.member.name,
+            email: member.member.email,
+            role: member.role // 'owner' o 'member'
+        }));
+
+        // Crear una respuesta que incluya toda la información del grupo
+        const response = {
+            ...group.toJSON(),
+            members
+        };
+
+        return res.json(response);
     } catch (error) {
         console.error('Error al obtener grupo:', error);
         return res.status(500).json({ error: 'Error al obtener el grupo' });
