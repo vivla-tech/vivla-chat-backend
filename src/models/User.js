@@ -45,14 +45,6 @@ const User = sequelize.define('User', {
     last_activity: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
-    },
-    group_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'groups',
-            key: 'group_id'
-        }
     }
 }, {
     timestamps: true,
@@ -61,11 +53,18 @@ const User = sequelize.define('User', {
     tableName: 'users'
 });
 
-// Añadir la asociación con Group
+// Añadir las asociaciones
 User.associate = (models) => {
-    User.belongsTo(models.Group, {
-        foreignKey: 'group_id',
-        as: 'group'
+    // Un usuario puede ser propietario de varios grupos
+    User.hasMany(models.Group, {
+        foreignKey: 'user_id',
+        as: 'ownedGroups'
+    });
+
+    // Un usuario puede ser miembro de varios grupos
+    User.hasMany(models.GroupMember, {
+        foreignKey: 'user_id',
+        as: 'groupMemberships'
     });
 };
 

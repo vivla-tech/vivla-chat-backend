@@ -45,7 +45,7 @@ export const getGroupById = async (req, res) => {
             return res.status(401).json({ error: 'No autorizado' });
         }
 
-        // Verificar que el usuario tiene acceso al grupo
+        // Verificar que el usuario existe
         const user = await User.findOne({ where: { firebase_uid } });
         if (!user) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -62,9 +62,14 @@ export const getGroupById = async (req, res) => {
                         {
                             model: User,
                             as: 'member',
-                            attributes: ['firebase_uid', 'name', 'email', 'house_name']
+                            attributes: ['id', 'name', 'email', 'house_name']
                         }
                     ]
+                },
+                {
+                    model: User,
+                    as: 'owner',
+                    attributes: ['id', 'name', 'email', 'house_name']
                 }
             ]
         });
@@ -74,8 +79,8 @@ export const getGroupById = async (req, res) => {
         }
 
         // Verificar que el usuario tiene acceso al grupo (es owner o miembro)
-        const hasAccess = group.owner_firebase_uid === firebase_uid ||
-            group.members.some(m => m.firebase_uid === firebase_uid);
+        const hasAccess = group.user_id === user.id ||
+            group.members.some(m => m.user_id === user.id);
 
         if (!hasAccess) {
             return res.status(403).json({ error: 'No tienes acceso a este grupo' });
@@ -83,7 +88,7 @@ export const getGroupById = async (req, res) => {
 
         // Mapear los miembros con sus roles
         const members = group.members.map(member => ({
-            id: member.member.firebase_uid,
+            id: member.member.id,
             name: member.member.name,
             email: member.member.email,
             role: member.role // 'owner' o 'member'

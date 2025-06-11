@@ -90,6 +90,13 @@ const getOrCreateGroup = async (ownerUser, conversationId) => {
             cw_conversation_id: conversationId,
             user_id: ownerUser.id
         });
+
+        // Crear el miembro del grupo
+        await GroupMember.create({
+            group_id: group.group_id,
+            user_id: ownerUser.id,
+            role: 'owner'
+        });
     } else {
         await group.update({
             cw_conversation_id: conversationId
@@ -120,12 +127,6 @@ const addUserToGroup = async (group, user_id, isInvited) => {
             user_id: user_id,
             role: isInvited ? 'member' : 'owner'
         });
-
-        // Actualizar el group_id del usuario
-        await User.update(
-            { group_id: group.group_id },
-            { where: { firebase_uid: firebase_uid } }
-        );
     }
 
     return groupMember;
