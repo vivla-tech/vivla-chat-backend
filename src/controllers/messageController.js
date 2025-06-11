@@ -318,7 +318,17 @@ async function sendPublicMessage(client_id, conversation_id, content) {
 // Controlador principal para enviar mensajes
 export const sendMessage = async (req, res) => {
     try {
-        const { conversation_id, content, client_id, user_id } = req.body;
+        const { group_id, content, client_id, user_id } = req.body;
+
+        // Buscar el grupo por su ID
+        const group = await Group.findByPk(group_id);
+        if (!group) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Grupo no encontrado'
+            });
+        }
+        const conversation_id = group.cw_conversation_id;
 
         // Buscar el usuario por su ID
         const user = await User.findByPk(user_id);
