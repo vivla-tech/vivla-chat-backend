@@ -1,7 +1,5 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
-import User from './User.js';
-import Group from './Group.js';
 
 const Message = sequelize.define('Message', {
     id: {
@@ -43,17 +41,6 @@ const Message = sequelize.define('Message', {
     createdAt: 'created_at',
     updatedAt: false,
     tableName: 'messages'
-});
-
-// Definir las relaciones
-Message.belongsTo(Group, {
-    foreignKey: 'group_id',
-    as: 'group'
-});
-
-Message.belongsTo(User, {
-    foreignKey: 'sender_id',
-    as: 'sender'
 });
 
 export default Message; 

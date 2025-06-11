@@ -19,14 +19,6 @@ const Group = sequelize.define('Group', {
             key: 'id'
         }
     },
-    owner_firebase_uid: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        references: {
-            model: 'users',
-            key: 'firebase_uid'
-        }
-    },
     cw_conversation_id: {
         type: DataTypes.STRING,
         allowNull: true,

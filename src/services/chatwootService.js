@@ -158,7 +158,7 @@ async function sendMessage(conversationId, content) {
     sender_type: "contact",
     private: false,
     content_type: "text",
-    content_attributes: { participant_id: "oleoleid00222" },
+    // content_attributes: { participant_id: "oleoleid00222" },
     };
     const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/messages`;
     console.log('Sending message to Chatwoot:', {

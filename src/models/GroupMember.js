@@ -23,14 +23,6 @@ const GroupMember = sequelize.define('GroupMember', {
             key: 'id'
         }
     },
-    firebase_uid: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        references: {
-            model: 'users',
-            key: 'firebase_uid'
-        }
-    },
     role: {
         type: DataTypes.STRING,
         allowNull: false,
