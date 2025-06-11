@@ -242,8 +242,12 @@ export const chatwootWebhook = async (req, res) => {
                 }
 
                 let isBotMessage = false;
+                let agentName = 'VIVLA';
                 if(content.includes('🤖')){
                     isBotMessage = true;
+                    agentName = 'VIVLA 🤖';
+                }else{
+                    agentName = `VIVLA ${sender.name}`;
                 }
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
                 
@@ -251,7 +255,7 @@ export const chatwootWebhook = async (req, res) => {
                 const newMessage = await Message.create({
                     group_id: group.group_id,
                     sender_id: user.id,
-                    sender_name: isBotMessage ? '🤖 VIVLA' : 'VIVLA',
+                    sender_name: agentName,
                     message_type: 'text',
                     direction: 'outgoing',
                     content: cleanContent
