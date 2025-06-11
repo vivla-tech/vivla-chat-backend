@@ -163,6 +163,15 @@ import { sendClientMessage, sendMessage as chatwootSendMessage } from '../servic
 //     }
 // };
 
+// async function findUserInGroupByContent(group, ownner, msessageContent){
+//     const messageContent = `**${user.name}**\n\n${content}`;
+//     // buscar group_members por group_id
+//     const groupMembers = await GroupMember.findAll({ where: { group_id: group.id } });
+//     // buscar user_id en group_members
+//     const user_id = groupMembers.find(member => member.user_id === ownner.id);
+//     return user_id;
+// }
+
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
     try {

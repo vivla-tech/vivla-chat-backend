@@ -46,9 +46,19 @@ Group.belongsTo(User, {
     as: 'owner'
 });
 
+Group.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user'
+});
+
 Group.hasMany(GroupMember, {
     foreignKey: 'group_id',
     as: 'members'
+});
+
+GroupMember.belongsTo(User, {
+    foreignKey: 'user_id',
+    as: 'user'
 });
 
 export {

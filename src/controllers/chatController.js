@@ -82,13 +82,14 @@ const getOrCreateClientConversation = async (user) => {
  * @returns {Promise<Group>} Grupo obtenido o creado
  */
 const getOrCreateGroup = async (ownerUser, conversationId) => {
-    let group = await Group.findOne({ where: { owner_firebase_uid: ownerUser.firebase_uid } });
+    let group = await Group.findOne({ where: { user_id: ownerUser.id } });
     
     if (!group) {
         group = await Group.create({
             name: `${ownerUser.name}'s Chat`,
             owner_firebase_uid: ownerUser.firebase_uid,
-            cw_conversation_id: conversationId
+            cw_conversation_id: conversationId,
+            user_id: ownerUser.id
         });
     } else {
         await group.update({
@@ -103,14 +104,15 @@ const getOrCreateGroup = async (ownerUser, conversationId) => {
  * Añade un usuario como miembro de un grupo
  * @param {Group} group - Grupo al que añadir el miembro
  * @param {string} firebase_uid - ID de Firebase del usuario
+ * @param {string} user_id - ID del usuario
  * @param {boolean} isInvited - Indica si el usuario es invitado
  * @returns {Promise<GroupMember>} Miembro del grupo creado
  */
-const addUserToGroup = async (group, firebase_uid, isInvited) => {
+const addUserToGroup = async (group, firebase_uid, user_id, isInvited) => {
     let groupMember = await GroupMember.findOne({
         where: {
             group_id: group.group_id,
-            firebase_uid: firebase_uid
+            user_id: user_id
         }
     });
 
@@ -118,6 +120,7 @@ const addUserToGroup = async (group, firebase_uid, isInvited) => {
         groupMember = await GroupMember.create({
             group_id: group.group_id,
             firebase_uid: firebase_uid,
+            user_id: user_id,
             role: isInvited ? 'member' : 'owner'
         });
     }
@@ -186,7 +189,7 @@ export const getChat = async (req, res) => {
         const group = await getOrCreateGroup(ownerUser, conversation.id);
 
         // Añadir usuario al grupo
-        await addUserToGroup(group, firebase_uid, !!invitedGuest);
+        await addUserToGroup(group, firebase_uid, user_id, !!invitedGuest);
 
         // Devolver estructura del chat
         const chat = {
