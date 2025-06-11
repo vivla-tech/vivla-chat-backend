@@ -1,7 +1,7 @@
 import express from 'express';
 import {
     // createMessage,
-    // getGroupMessages,
+    getGroupMessages,
     // deleteMessage,
     // updateMessage,
     chatwootWebhook,
@@ -14,7 +14,7 @@ const router = express.Router();
 // router.post('/', createMessage);
 
 // // Obtener mensajes de un grupo
-// router.get('/group/:groupId', getGroupMessages);
+router.get('/group/:groupId', getGroupMessages);
 
 // // Eliminar un mensaje
 // router.delete('/:messageId', deleteMessage);
