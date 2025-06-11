@@ -155,7 +155,7 @@ async function sendMessage(conversationId, content) {
   const payload = { 
     content,
     message_type: 'incoming',
-    sender_type: "contact",
+    // sender_type: "contact",
     private: false,
     content_type: "text",
     // content_attributes: { participant_id: "oleoleid00222" },
