@@ -249,9 +249,9 @@ export const chatwootWebhook = async (req, res) => {
                 let agentName = 'VIVLA';
                 if(content.includes('🤖')){
                     isBotMessage = true;
-                    agentName = 'VIVLA 🤖';
+                    agentName = 'VIVLA - 🤖';
                 }else{
-                    agentName = `VIVLA ${capitalizeFirstLetter(sender.name)}`;
+                    agentName = `VIVLA - ${capitalizeFirstLetter(sender.name)}`;
                 }
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
                 
