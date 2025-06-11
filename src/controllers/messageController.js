@@ -270,7 +270,7 @@ export const chatwootWebhook = async (req, res) => {
                     group_id: group.group_id,
                     sender_id: user.id,
                     message_type: 'text',
-                    content: content
+                    content: `**VIVLA**\n\n${content}`
                 });
 
                 console.log('Nuevo mensaje creado:', {

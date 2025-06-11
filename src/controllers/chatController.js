@@ -87,7 +87,6 @@ const getOrCreateGroup = async (ownerUser, conversationId) => {
     if (!group) {
         group = await Group.create({
             name: `${ownerUser.name}'s Chat`,
-            // owner_firebase_uid: ownerUser.firebase_uid,
             cw_conversation_id: conversationId,
             user_id: ownerUser.id
         });
@@ -118,7 +117,6 @@ const addUserToGroup = async (group, user_id, isInvited) => {
     if (!groupMember) {
         groupMember = await GroupMember.create({
             group_id: group.group_id,
-            // firebase_uid: firebase_uid,
             user_id: user_id,
             role: isInvited ? 'member' : 'owner'
         });
