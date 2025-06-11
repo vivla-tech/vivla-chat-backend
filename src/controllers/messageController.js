@@ -163,6 +163,10 @@ function getMessageParts(content, defaultUserName) {
 function cleanBotMessage(content) {
     return content.replace('🤖', '').trim();
 }
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+  }
+  
 
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
@@ -247,7 +251,7 @@ export const chatwootWebhook = async (req, res) => {
                     isBotMessage = true;
                     agentName = 'VIVLA 🤖';
                 }else{
-                    agentName = `VIVLA ${sender.name}`;
+                    agentName = `VIVLA ${capitalizeFirstLetter(sender.name)}`;
                 }
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
                 
