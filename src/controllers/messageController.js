@@ -184,7 +184,7 @@ async function findUserInGroupByContent(group, owner, messageContent) {
             }
         }
 
-        return owner; // Si no se encuentra ningún usuario que coincida
+        return owner; // Si no se encuentra ningún usuario que coincida devolvemos el dueño del grupo
     } catch (error) {
         console.error('Error en findUserInGroupByContent:', error);
         return null;
