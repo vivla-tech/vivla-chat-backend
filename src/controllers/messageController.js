@@ -1,6 +1,7 @@
 import { Message, User, Group, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
 import { sendClientMessage, sendMessage as chatwootSendMessage } from '../services/chatwootService.js';
+import { createTicket } from '../services/zendeskService.js';
 
 
 // // Obtener mensajes de un grupo
@@ -273,7 +274,39 @@ export const chatwootWebhook = async (req, res) => {
                 });
             }
             // console.log('Chatwoot Full Message Created Event:', req.body);
-        } else {
+        } else if (event === 'message_created' && isPrivate) {
+            // console.log('Chatwoot Private Message Created Event:', {
+            //     id,
+            //     content,
+            //     message_type,
+            //     created_at,
+            //     private: isPrivate,
+            //     source_id,
+            //     content_type,
+            //     content_attributes,
+            //     sender: {
+            //         type: sender?.type,
+            //         id: sender?.id,
+            //         name: sender?.name,
+            //         email: sender?.email
+            //     }
+            // });
+            console.log('Chatwoot Private Message Created Event:', req.body);
+            const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
+            if(!group) {    
+                return res.status(404).json({ error: 'Grupo no encontrado' });
+            }
+            const groupOwner = await User.findOne({ where: { id: group.user_id } });
+            if(!groupOwner) {
+                return res.status(404).json({ error: 'Dueño del grupo no encontrado' });
+            }
+            await createTicket(groupOwner.name, groupOwner.email, sender.name, content, true);
+            // TODO: Crear macro en chatwoot para enviar el mensaje privado a la conversación privada con formulario o algo.
+            // TODO: Limpiar el mensaje privado
+            // TODO: Enviar mensaje a la conversación privada actualizando el mensaje privado con la url o id de ticket
+            // TODO: usar IA para: formatear mensaje, obtener la casa y el destino y la prioridad
+        }
+        else {
             // Para otros eventos, solo mostrar el tipo
             console.log('Chatwoot Event:', { event });
         }
