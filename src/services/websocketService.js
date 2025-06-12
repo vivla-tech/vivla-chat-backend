@@ -1,10 +1,12 @@
 import { Server } from 'socket.io';
+import { User } from '../models/index.js';
 
 // Estado global del servicio WebSocket
 let io = null;
 // Mapa para mantener registro de usuarios conectados
 // La clave es el userId y el valor es el socketId
 const connectedUsers = new Map();
+const userGroups = new Map(); // userId -> Set<groupId>
 
 /**
  * Inicializa el servidor WebSocket
@@ -32,55 +34,96 @@ export function initializeWebSocket(server) {
  * @param {Object} socket - El objeto socket del cliente conectado
  */
 function handleConnection(socket) {
-    console.log('Usuario conectado:', socket.id);
-
     // Cuando un usuario se autentica
-    socket.on('authenticate', (userId) => {
-        // Guardamos la relación entre userId y socketId
-        connectedUsers.set(userId, socket.id);
-        console.log(`Usuario autenticado: ${userId}`);
+    socket.on('authenticate', (userId, callback) => {
+        try {
+            if (!userId) {
+                console.error('Error: userId no proporcionado en authenticate');
+                callback?.({ success: false, error: 'userId no proporcionado' });
+                return;
+            }
+
+            connectedUsers.set(String(userId), socket.id);
+            callback?.({ success: true });
+        } catch (error) {
+            console.error('Error en authenticate:', error);
+            callback?.({ success: false, error: error.message });
+        }
     });
 
     // Cuando llega un mensaje de chat
-    socket.on('chat_message', (data) => {
-        const { groupId, userId, message } = data;
-        console.log('Mensaje recibido en backend:', { groupId, userId, message });
+    socket.on('chat_message', async (data, callback) => {
+        try {
+            const { groupId, userId, message } = data;
+            if (!groupId || !userId || !message) {
+                console.error('Error: datos incompletos en chat_message:', data);
+                callback({ success: false, error: 'Datos incompletos' });
+                return;
+            }
 
-        // Enviamos el mensaje a todos los usuarios en el mismo grupo
-        const roomName = `group_${groupId}`;
-        console.log('Enviando mensaje a sala:', roomName);
-        console.log('Usuarios en la sala:', io.sockets.adapter.rooms.get(roomName)?.size || 0);
+            // Obtener el nombre del usuario
+            const user = await User.findByPk(userId);
+            if (!user) {
+                throw new Error('Usuario no encontrado');
+            }
 
-        io.to(roomName).emit('new_message', {
-            groupId,
-            userId,
-            message,
-            timestamp: new Date()
-        });
+            const groupIdStr = String(groupId);
+            const roomName = `group_${groupIdStr}`;
+
+            // Emitir el mensaje a la sala
+            io.to(roomName).emit('chat_message', {
+                groupId: groupIdStr,
+                userId,
+                message,
+                sender_name: user.name,
+                timestamp: new Date().toISOString()
+            });
+
+            callback({ success: true });
+        } catch (error) {
+            console.error('Error al procesar mensaje:', error);
+            callback({ success: false, error: error.message });
+        }
     });
 
     // Cuando un usuario quiere unirse a un grupo
-    socket.on('join_group', (groupId) => {
-        const roomName = `group_${groupId}`;
-        socket.join(roomName);
-        console.log(`Socket ${socket.id} se unió al grupo ${groupId}`);
-        console.log('Usuarios en la sala:', io.sockets.adapter.rooms.get(roomName)?.size || 0);
+    socket.on('join_group', async (data, callback) => {
+        try {
+            const { groupId } = data;
+            if (!groupId) {
+                console.error('Error: groupId no proporcionado en join_group');
+                callback({ success: false, error: 'groupId no proporcionado' });
+                return;
+            }
+
+            const groupIdStr = String(groupId);
+            const roomName = `group_${groupIdStr}`;
+
+            // Verificar si el usuario ya está en la sala
+            if (socket.rooms.has(roomName)) {
+                callback({ success: true });
+                return;
+            }
+
+            // Unir al socket a la sala
+            await socket.join(roomName);
+            callback({ success: true });
+        } catch (error) {
+            console.error('Error al unir socket a grupo:', error);
+            callback({ success: false, error: error.message });
+        }
     });
 
     // Cuando un usuario quiere salir de un grupo
     socket.on('leave_group', (groupId) => {
-        // El socket abandona la sala del grupo
         socket.leave(`group_${groupId}`);
-        console.log(`Socket ${socket.id} salió del grupo ${groupId}`);
     });
 
     // Cuando un usuario se desconecta
     socket.on('disconnect', () => {
-        // Buscamos y eliminamos al usuario desconectado de nuestro registro
         for (const [userId, socketId] of connectedUsers.entries()) {
             if (socketId === socket.id) {
                 connectedUsers.delete(userId);
-                console.log(`Usuario desconectado: ${userId}`);
                 break;
             }
         }
