@@ -1,6 +1,6 @@
 import { Message, User, Group, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
-import { sendClientMessage, sendMessage as chatwootSendMessage } from '../services/chatwootService.js';
+import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage } from '../services/chatwootService.js';
 import { createTicket } from '../services/zendeskService.js';
 
 
@@ -274,33 +274,30 @@ export const chatwootWebhook = async (req, res) => {
                 });
             }
             // console.log('Chatwoot Full Message Created Event:', req.body);
-        } else if (event === 'message_created' && isPrivate) {
-            // console.log('Chatwoot Private Message Created Event:', {
-            //     id,
-            //     content,
-            //     message_type,
-            //     created_at,
-            //     private: isPrivate,
-            //     source_id,
-            //     content_type,
-            //     content_attributes,
-            //     sender: {
-            //         type: sender?.type,
-            //         id: sender?.id,
-            //         name: sender?.name,
-            //         email: sender?.email
-            //     }
-            // });
+        } else if (event === 'message_created' && isPrivate && (content.toLowerCase().includes('@ticket') || content.toLowerCase().includes('@zendesk'))) {
             console.log('Chatwoot Private Message Created Event:', req.body);
+            const { custom_attributes } = req.body.conversation;
+            const { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin } = custom_attributes;
+
+            if(!casa || !zendesk_ticket_priority || !zendesk_equipo_de_resolucin) {
+                await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Faltan datos requeridos para crear el ticket');
+                return res.status(400).json({ error: 'Faltan datos requeridos para crear el ticket' });
+            }
             const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
             if(!group) {    
+                await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Grupo no encontrado');
                 return res.status(404).json({ error: 'Grupo no encontrado' });
             }
             const groupOwner = await User.findOne({ where: { id: group.user_id } });
             if(!groupOwner) {
+                await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Dueño del grupo no encontrado');
                 return res.status(404).json({ error: 'Dueño del grupo no encontrado' });
             }
-            await createTicket(groupOwner.name, groupOwner.email, sender.name, content, true);
+
+            const newTicket = await createTicket(groupOwner.name, groupOwner.email, sender.name, content, true);
+            console.log('Ticket creado:', newTicket);
+            const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${newTicket.id}`;
+            await sendInternalNote(conversation.id, `👋 Hola ${sender.name}\n\nTicket cread con Id: **${newTicket.id}**\n Puedes verlo en: ${ticketUrl}\n\nAgur!`);
             // TODO: Crear macro en chatwoot para enviar el mensaje privado a la conversación privada con formulario o algo.
             // TODO: Limpiar el mensaje privado
             // TODO: Enviar mensaje a la conversación privada actualizando el mensaje privado con la url o id de ticket
@@ -326,6 +323,13 @@ export const chatwootWebhook = async (req, res) => {
     }
 };
 
+async function sendInternalNote(conversation_id, content) {
+    if (!conversation_id || !content) {
+        throw new Error('Faltan datos requeridos: conversation_id y content son necesarios');
+    }
+
+    return await sendInternalNoteMessage(conversation_id, content);
+}
 /**
  * Función auxiliar para enviar mensaje usando la API interna de Chatwoot
  * @param {string} conversation_id - ID de la conversación

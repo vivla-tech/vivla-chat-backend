@@ -171,6 +171,29 @@ async function sendMessage(conversationId, content) {
 }
 
 /**
+ * Envía un mensaje (texto) a una conversación de Chatwoot.
+ * Endpoint: POST /api/v1/conversations/:conversationId/messages
+ * @param {number} conversationId – El ID de la conversación.
+ * @param {string} content – El texto del mensaje.
+ */
+async function sendInternalNoteMessage(conversationId, content) {
+    const payload = { 
+      content,
+      message_type: 'outgoing',
+      private: true,
+      content_type: "text",
+      };
+      const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/messages`;
+      console.log('Sending message to Chatwoot:', {
+          conversationId,
+          content,
+          payload,
+          url
+      });
+    return await chatwootRequest(url, { method: 'POST', body: JSON.stringify(payload) });
+  }
+
+/**
  * Envía un mensaje desde el cliente a una conversación específica usando la API pública de Chatwoot.
  * Endpoint: POST /public/api/v1/inboxes/{inbox_identifier}/contacts/{contact_identifier}/conversations/{conversation_id}/messages
  * @param {string} clientId - El ID del cliente/contacto en Chatwoot
@@ -374,6 +397,7 @@ export {
     listConversations,
     createConversation,
     sendMessage,
+    sendInternalNoteMessage,
     listMessages,
     createContact,
     searchContactByEmail,
