@@ -167,7 +167,16 @@ function cleanBotMessage(content) {
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
   }
-  
+
+// Función para limpiar el mensaje del ticket eliminando las menciones
+const cleanTicketMessage = (message) => {
+    // Expresión regular que coincide con [@Zendesk](mention:xxxx) o [@Ticket](mention:xxxx)
+    // Ignora mayúsculas/minúsculas y permite variaciones en el formato
+    const mentionRegex = /\[@(?:Zendesk|Ticket|zendesk|ticket|ZENDESK|TICKET)\]\(mention:[^)]+\)\s*/i;
+    
+    // Reemplazar la mención con una cadena vacía
+    return message.replace(mentionRegex, '').trim();
+};
 
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
@@ -294,10 +303,14 @@ export const chatwootWebhook = async (req, res) => {
                 return res.status(404).json({ error: 'Dueño del grupo no encontrado' });
             }
 
-            const newTicket = await createTicket(groupOwner.name, groupOwner.email, sender.name, content, true);
+            const cleanedMessage = cleanTicketMessage(content);
+            const newTicket = await createTicket(groupOwner.name, groupOwner.email, sender.name, cleanedMessage, zendesk_ticket_priority, casa, zendesk_equipo_de_resolucin, true);
             console.log('Ticket creado:', newTicket);
             const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${newTicket.id}`;
-            await sendInternalNote(conversation.id, `👋 Hola ${sender.name}\n\nTicket cread con Id: **${newTicket.id}**\n Puedes verlo en: ${ticketUrl}\n\nAgur!`);
+            const ticketMessage = `👋 Hola ${sender.name}\n\nTicket creado:\n - 🆔 Id: **${newTicket.id}**\n - 📝 Prioridad: **${zendesk_ticket_priority}**\n - 📍 Casa: **${casa}**\n - 🔍 Equipo de resolución: **${zendesk_equipo_de_resolucin}**\n - 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
+            await sendInternalNote(conversation.id, ticketMessage);
+            // TODO: Añadir prioridad, casa y equipo de resolución al ticket al mensaje interno
+
             // TODO: Crear macro en chatwoot para enviar el mensaje privado a la conversación privada con formulario o algo.
             // TODO: Limpiar el mensaje privado
             // TODO: Enviar mensaje a la conversación privada actualizando el mensaje privado con la url o id de ticket

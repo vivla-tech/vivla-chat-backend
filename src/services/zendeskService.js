@@ -17,12 +17,34 @@ const zendeskClient = createClient({
     remoteUri: `https://${ZENDESK_CONFIG.ZENDESK_SUBDOMAIN}.zendesk.com/api/v2`
 });
 
+// Mapeo de equipos a valores de Zendesk
+const TEAM_MAPPING = {
+    'Owners': 'experiencia_del_cliente',
+    'Properties': 'propiedades_y_mantenimiento',
+    'VIVLA STUDIO': 'vivla_studio',
+    'Otros': 'otros'
+};
+
+// Función para limpiar el mensaje del ticket eliminando las menciones
+const cleanTicketMessage = (message) => {
+    // Expresión regular que coincide con [@Zendesk](mention:xxxx) o [@Ticket](mention:xxxx)
+    // Ignora mayúsculas/minúsculas y permite variaciones en el formato
+    const mentionRegex = /\[@(?:Zendesk|Ticket|zendesk|ticket|ZENDESK|TICKET)\]\(mention:[^)]+\)\s*/i;
+    
+    // Reemplazar la mención con una cadena vacía
+    return message.replace(mentionRegex, '').trim();
+};
+
 // Crear ticket en Zendesk
-export const createTicket = async (userName, userEmail, agentName, message, isAgentMessage = false) => {
+export const createTicket = async (userName, userEmail, agentName, message, priority, home, team, isAgentMessage = false) => {
     try {
+        const cleanedMessage = cleanTicketMessage(message);
         const formattedMessage = isAgentMessage
-            ? `[Agente ${agentName} - ${new Date().toLocaleString()}]\n\n ${message}`
-            : message;
+            ? `[Agente ${agentName} - ${new Date().toLocaleString()}]\n\n ${cleanedMessage}`
+            : cleanedMessage;
+
+        // Mapear el equipo al valor requerido por Zendesk
+        const mappedTeam = TEAM_MAPPING[team] || team;
 
         const ticket = {
             ticket: {
@@ -35,9 +57,19 @@ export const createTicket = async (userName, userEmail, agentName, message, isAg
                     name: userName,
                     email: userEmail
                 },
-                priority: 'normal',
+                priority: priority.toLowerCase(),
                 status: 'new',
-                tags: ['chat']
+                tags: ['chat'],
+                custom_fields: [
+                    {
+                        id: 17925940459804,
+                        value: home
+                    },
+                    {
+                        id: 17926240467100,
+                        value: mappedTeam
+                    }
+                ]
             }
         };
 
