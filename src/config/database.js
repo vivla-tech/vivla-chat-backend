@@ -33,7 +33,7 @@ if (process.env.NODE_ENV === 'production') {
             host: process.env.POSTGRES_HOST,
             port: process.env.POSTGRES_PORT,
             dialect: 'postgres',
-            logging: console.log, // Enable logging in development
+            logging: false,
             pool: {
                 max: 5,
                 min: 0,
