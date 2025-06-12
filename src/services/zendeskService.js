@@ -25,26 +25,25 @@ const TEAM_MAPPING = {
     'Otros': 'otros'
 };
 
-// Función para limpiar el mensaje del ticket eliminando las menciones
-const cleanTicketMessage = (message) => {
-    // Expresión regular que coincide con [@Zendesk](mention:xxxx) o [@Ticket](mention:xxxx)
-    // Ignora mayúsculas/minúsculas y permite variaciones en el formato
-    const mentionRegex = /\[@(?:Zendesk|Ticket|zendesk|ticket|ZENDESK|TICKET)\]\(mention:[^)]+\)\s*/i;
-    
-    // Reemplazar la mención con una cadena vacía
-    return message.replace(mentionRegex, '').trim();
+// Mapeo de prioridades a valores de Zendesk
+const PRIORITY_MAPPING = {
+    'urgente': 'urgent',
+    'alta': 'high',
+    'normal': 'normal',
+    'baja': 'low',
 };
 
 // Crear ticket en Zendesk
 export const createTicket = async (userName, userEmail, agentName, message, priority, home, team, isAgentMessage = false) => {
     try {
-        const cleanedMessage = cleanTicketMessage(message);
         const formattedMessage = isAgentMessage
-            ? `[Agente ${agentName} - ${new Date().toLocaleString()}]\n\n ${cleanedMessage}`
-            : cleanedMessage;
+            ? `[Agente ${agentName} - ${new Date().toLocaleString()}]\n\n ${message}`
+            : message;
 
         // Mapear el equipo al valor requerido por Zendesk
         const mappedTeam = TEAM_MAPPING[team] || team;
+        // Mapear la prioridad al valor requerido por Zendesk
+        const mappedPriority = PRIORITY_MAPPING[priority.toLowerCase()] || 'normal';
 
         const ticket = {
             ticket: {
@@ -57,7 +56,7 @@ export const createTicket = async (userName, userEmail, agentName, message, prio
                     name: userName,
                     email: userEmail
                 },
-                priority: priority.toLowerCase(),
+                priority: mappedPriority,
                 status: 'new',
                 tags: ['chat'],
                 custom_fields: [
