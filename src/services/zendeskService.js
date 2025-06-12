@@ -109,7 +109,10 @@ export const handleTicketStatusChange = async (ticketDetail, event) => {
             subject: ticketDetail.subject
         });
 
-        sendInternalNoteMessage(ticketDetail.external_id, `Ticket ${ticketDetail.id} ha cambiado de estado a ${event.current}`);
+        const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${ticketDetail.id}`;
+        const ticketMessage = `👋 Hola\n\nTicket actualizado:\n - 🆔 Id: **${ticketDetail.id}**\n - ⚙️ Estado: **${event.current}**\n- 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
+            
+        sendInternalNoteMessage(ticketDetail.external_id, ticketMessage);
 
         // Aquí puedes implementar la lógica específica para manejar los cambios de estado
         // Por ejemplo:
