@@ -21,7 +21,7 @@ const zendeskClient = createClient({
 export const createTicket = async (userName, userEmail, agentName, message, isAgentMessage = false) => {
     try {
         const formattedMessage = isAgentMessage
-            ? `[Agente ${agentName} - ${new Date().toLocaleString()}] ${message}`
+            ? `[Agente ${agentName} - ${new Date().toLocaleString()}]\n\n ${message}`
             : message;
 
         const ticket = {
