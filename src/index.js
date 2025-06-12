@@ -8,6 +8,7 @@ import groupRoutes from './routes/groupRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import zendeskRoutes from './routes/zendeskRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -22,6 +23,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/zendesk', zendeskRoutes);
 
 // Configuración de la aplicación
 const config = {

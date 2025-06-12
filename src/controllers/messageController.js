@@ -304,16 +304,11 @@ export const chatwootWebhook = async (req, res) => {
             }
 
             const cleanedMessage = cleanTicketMessage(content);
-            const newTicket = await createTicket(groupOwner.name, groupOwner.email, sender.name, cleanedMessage, zendesk_ticket_priority, casa, zendesk_equipo_de_resolucin, true);
+            const newTicket = await createTicket(groupOwner.name, groupOwner.email, sender.name, cleanedMessage, zendesk_ticket_priority, casa, zendesk_equipo_de_resolucin, conversation.id, true);
             console.log('Ticket creado:', newTicket);
             const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${newTicket.id}`;
             const ticketMessage = `👋 Hola ${sender.name}\n\nTicket creado:\n - 🆔 Id: **${newTicket.id}**\n - 📝 Prioridad: **${zendesk_ticket_priority}**\n - 📍 Casa: **${casa}**\n - 🔍 Equipo de resolución: **${zendesk_equipo_de_resolucin}**\n - 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
             await sendInternalNote(conversation.id, ticketMessage);
-            // TODO: Añadir prioridad, casa y equipo de resolución al ticket al mensaje interno
-
-            // TODO: Crear macro en chatwoot para enviar el mensaje privado a la conversación privada con formulario o algo.
-            // TODO: Limpiar el mensaje privado
-            // TODO: Enviar mensaje a la conversación privada actualizando el mensaje privado con la url o id de ticket
             // TODO: usar IA para: formatear mensaje, obtener la casa y el destino y la prioridad
         }
         else {
