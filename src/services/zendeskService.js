@@ -1,5 +1,6 @@
 import { createClient } from 'node-zendesk';
 import dotenv from 'dotenv';
+import { sendInternalNoteMessage } from './chatwootService.js';
 
 dotenv.config();
 
@@ -107,6 +108,8 @@ export const handleTicketStatusChange = async (ticketDetail, event) => {
             currentStatus: event.current,
             subject: ticketDetail.subject
         });
+
+        sendInternalNoteMessage(ticketDetail.external_id, `Ticket ${ticketDetail.id} ha cambiado de estado a ${event.current}`);
 
         // Aquí puedes implementar la lógica específica para manejar los cambios de estado
         // Por ejemplo:
