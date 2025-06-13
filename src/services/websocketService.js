@@ -1,5 +1,5 @@
 import { Server } from 'socket.io';
-import { User, Group, Message } from '../models/index.js';
+import { User, Group } from '../models/index.js';
 import { chatwootSendMessage } from '../services/chatwootService.js';
 
 // Estado global del servicio WebSocket
