@@ -14,7 +14,7 @@ import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
 const createOrUpdateUser = async (userData, sourceId, contactId) => {
     const { firebase_uid, name, email } = userData;
     let user = await User.findOne({ where: { firebase_uid } });
-    
+
     if (!user) {
         user = await User.create({
             firebase_uid,
@@ -30,7 +30,7 @@ const createOrUpdateUser = async (userData, sourceId, contactId) => {
             cw_contact_id: contactId
         });
     }
-    
+
     return user;
 };
 
@@ -47,7 +47,7 @@ const getOrCreateConversation = async (user) => {
             source_id: user.cw_source_id,
             contact_id: user.cw_contact_id
         });
-    conversation = newConversation;
+        conversation = newConversation;
     }
 
     return conversation;
@@ -63,12 +63,12 @@ const getOrCreateClientConversation = async (user) => {
 
     let user_group = await Group.findOne({ where: { owner_firebase_uid: user.firebase_uid } });
 
-    if(!user_group || !user_group.cw_conversation_id) {
+    if (!user_group || !user_group.cw_conversation_id) {
         return await createConversationFromClient(user.cw_source_id);
     }
 
     let clientConversation = await getClientSingleConversation(user.cw_source_id, user_group.cw_conversation_id);
-    if(!clientConversation) {
+    if (!clientConversation) {
         return await createConversationFromClient(user.cw_source_id);
     }
     return clientConversation;
@@ -83,19 +83,26 @@ const getOrCreateClientConversation = async (user) => {
  */
 const getOrCreateGroup = async (ownerUser, conversationId) => {
     let group = await Group.findOne({ where: { user_id: ownerUser.id } });
-    
+
     if (!group) {
         group = await Group.create({
             name: `${ownerUser.name}'s Chat`,
             cw_conversation_id: conversationId,
             user_id: ownerUser.id
         });
+
+        // Crear el miembro del grupo
+        await GroupMember.create({
+            group_id: group.group_id,
+            user_id: ownerUser.id,
+            role: 'owner'
+        });
     } else {
         await group.update({
             cw_conversation_id: conversationId
         });
     }
-    
+
     return group;
 };
 

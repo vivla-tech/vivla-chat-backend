@@ -1,6 +1,7 @@
 import { Message, User, Group, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
  import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
+import { emitToGroup } from '../services/websocketService.js';
 import { createTicket } from '../services/zendeskService.js';
 
 
@@ -139,7 +140,7 @@ async function findUserInGroupByContent(group, owner, messageContent) {
 function getMessageParts(content, defaultUserName) {
     // Verificar si el contenido sigue el patrón "**Nombre**\n\nContenido"
     const parts = content.split('**');
-    
+
     // Si no hay suficientes partes o no sigue el patrón, devolver el default
     if (parts.length < 3) {
         return {
@@ -150,7 +151,7 @@ function getMessageParts(content, defaultUserName) {
 
     // Extraer el nombre (está entre los primeros **)
     const name = parts[1].trim();
-    
+
     // El contenido está después del segundo **
     // Eliminamos el nombre y los ** del contenido original
     const contentWithoutName = content.replace(`**${name}**\n\n`, '').trim();
@@ -215,19 +216,19 @@ export const chatwootWebhook = async (req, res) => {
                     channel_type: inbox?.channel_type
                 }
             });
-            if(message_type === 'incoming') {
+            if (message_type === 'incoming') {
                 const ownerUser = await User.findOne({ where: { email: sender.email } });
-                if(!ownerUser) {
+                if (!ownerUser) {
                     return res.status(404).json({ error: 'Usuario no encontrado' });
                 }
                 const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
-                if(!group) {
+                if (!group) {
                     return res.status(404).json({ error: 'Grupo no encontrado' });
                 }
 
                 const senderUser = await findUserInGroupByContent(group, ownerUser, content);
                 const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
-                
+
                 // Crear un nuevo mensaje en la tabla de Messages
                 const newMessage = await Message.create({
                     group_id: group.group_id,
@@ -238,15 +239,24 @@ export const chatwootWebhook = async (req, res) => {
                     content: messageContent
                 });
 
-                console.log('Nuevo mensaje incoming creado');
+                // Emitir el mensaje por WebSocket a todos los usuarios del grupo
+                emitToGroup(group.group_id, 'chat_message', {
+                    groupId: group.group_id,
+                    userId: senderUser.id,
+                    message: messageContent,
+                    sender_name: senderName,
+                    timestamp: newMessage.created_at
+                });
 
-            }else if(message_type === 'outgoing') {
+                console.log('Nuevo mensaje creado y emitido.');
+
+            } else if (message_type === 'outgoing') {
                 const user = await User.findOne({ where: { firebase_uid: '0000' } });
-                if(!user) {
+                if (!user) {
                     return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
                 }
                 const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
-                if(!group) {
+                if (!group) {
                     return res.status(404).json({ error: 'Grupo no encontrado' });
                 }
 
@@ -270,7 +280,16 @@ export const chatwootWebhook = async (req, res) => {
                     content: cleanContent
                 });
 
-                console.log('Nuevo mensaje outgoingcreado');
+                // Emitir el mensaje por WebSocket a todos los usuarios del grupo
+                emitToGroup(group.group_id, 'chat_message', {
+                    groupId: group.group_id,
+                    userId: user.id,
+                    message: content,
+                    sender_name: 'VIVLA',
+                    timestamp: newMessage.created_at
+                });
+
+                console.log('Nuevo mensaje VIVLA creado y emitido.');
             }
             // console.log('Chatwoot Full Message Created Event:', req.body);
         } else if (event === 'message_created' && isPrivate && (content.toLowerCase().includes('@ticket') || content.toLowerCase().includes('@zendesk'))) {
@@ -309,14 +328,13 @@ export const chatwootWebhook = async (req, res) => {
             console.log('Chatwoot Event:', { event });
         }
 
-        // Respondemos con 200 para indicar que recibimos el webhook correctamente
-        return res.status(200).json({ 
+        return res.status(200).json({
             status: 'success',
             message: 'Webhook received successfully'
         });
     } catch (error) {
         console.error('Error processing Chatwoot webhook:', error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             status: 'error',
             message: 'Error processing webhook',
             error: error.message
