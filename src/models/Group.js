@@ -11,13 +11,18 @@ const Group = sequelize.define('Group', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    owner_firebase_uid: {
-        type: DataTypes.STRING,
+    user_id: {
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: 'users',
-            key: 'firebase_uid'
+            key: 'id'
         }
+    },
+    cw_conversation_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Chatwoot conversation ID para el grupo'
     },
     created_at: {
         type: DataTypes.DATE,

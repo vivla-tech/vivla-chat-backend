@@ -1,55 +1,48 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '../config/database.js';
-import User from './User.js';
-import Group from './Group.js';
-import InvitedGuest from './InvitedGuest.js';
 
 const Message = sequelize.define('Message', {
-    message_id: {
-        type: DataTypes.BIGINT,
+    id: {
+        type: DataTypes.UUID,
         primaryKey: true,
-        autoIncrement: true
+        defaultValue: DataTypes.UUIDV4
     },
     group_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: 'groups',
-            key: 'group_id'
+            key: 'id'
         }
     },
-    sender_firebase_uid: {
-        type: DataTypes.STRING,
-        allowNull: true,
+    sender_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
         references: {
             model: 'users',
-            key: 'firebase_uid'
+            key: 'id'
         }
     },
-    sender_guest_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'invited_guests',
-            key: 'guest_id'
-        }
-    },
-    sender_display_name: {
+    sender_name: {
         type: DataTypes.STRING,
         allowNull: false
     },
     message_type: {
-        type: DataTypes.ENUM('text', 'image', 'video'),
+        type: DataTypes.STRING,
         allowNull: false,
         defaultValue: 'text'
     },
-    text_content: {
-        type: DataTypes.TEXT,
-        allowNull: true
-    },
-    media_url: {
+    direction: {
         type: DataTypes.STRING,
-        allowNull: true
+        allowNull: false,
+        defaultValue: 'incoming',
+        validate: {
+            isIn: [['incoming', 'outgoing']]
+        }
+    },
+    content: {
+        type: DataTypes.TEXT,
+        allowNull: false
     },
     created_at: {
         type: DataTypes.DATE,
@@ -59,34 +52,7 @@ const Message = sequelize.define('Message', {
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: false,
-    tableName: 'messages',
-    validate: {
-        senderIsValid() {
-            if (!this.sender_firebase_uid && !this.sender_guest_id) {
-                throw new Error('El mensaje debe tener un remitente (usuario o invitado)');
-            }
-            if (this.sender_firebase_uid && this.sender_guest_id) {
-                throw new Error('El mensaje no puede tener ambos tipos de remitente');
-            }
-        }
-    }
-});
-
-// Definir las relaciones
-Message.belongsTo(Group, {
-    foreignKey: 'group_id',
-    as: 'group'
-});
-
-Message.belongsTo(User, {
-    foreignKey: 'sender_firebase_uid',
-    targetKey: 'firebase_uid',
-    as: 'sender'
-});
-
-Message.belongsTo(InvitedGuest, {
-    foreignKey: 'sender_guest_id',
-    as: 'guestSender'
+    tableName: 'messages'
 });
 
 export default Message; 

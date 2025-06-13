@@ -28,6 +28,16 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    cw_source_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Chatwoot source ID para el usuario'
+    },
+    cw_contact_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Chatwoot contact ID para el usuario'
+    },
     created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
@@ -42,5 +52,20 @@ const User = sequelize.define('User', {
     updatedAt: 'last_activity',
     tableName: 'users'
 });
+
+// Añadir las asociaciones
+User.associate = (models) => {
+    // Un usuario puede ser propietario de varios grupos
+    User.hasMany(models.Group, {
+        foreignKey: 'user_id',
+        as: 'ownedGroups'
+    });
+
+    // Un usuario puede ser miembro de varios grupos
+    User.hasMany(models.GroupMember, {
+        foreignKey: 'user_id',
+        as: 'groupMemberships'
+    });
+};
 
 export default User; 

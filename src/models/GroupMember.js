@@ -15,12 +15,12 @@ const GroupMember = sequelize.define('GroupMember', {
             key: 'group_id'
         }
     },
-    firebase_uid: {
-        type: DataTypes.STRING,
+    user_id: {
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: 'users',
-            key: 'firebase_uid'
+            key: 'id'
         }
     },
     role: {

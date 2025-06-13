@@ -5,7 +5,9 @@ const createTestUser = async () => {
         const testUser = await User.create({
             firebase_uid: 'test-uid-123',
             name: 'Usuario de Prueba',
-            email: 'test@example.com'
+            email: 'test@example.com',
+            house_name: 'Casa de Prueba',
+            cw_source_id: null // Inicialmente null, se actualizará cuando se cree el chat
         });
 
         console.log('Usuario de prueba creado:', testUser.toJSON());
