@@ -1,6 +1,6 @@
 import { Server } from 'socket.io';
 import { User, Group } from '../models/index.js';
-import { chatwootSendMessage } from '../services/chatwootService.js';
+import { sendMessage } from '../services/chatwootService.js';
 
 // Estado global del servicio WebSocket
 let io = null;
@@ -79,7 +79,7 @@ function handleConnection(socket) {
 
             // Enviar a Chatwoot
             const messageContent = `**${user.name}**\n\n${content}`;
-            await chatwootSendMessage(group.cw_conversation_id, messageContent);
+            await sendMessage(group.cw_conversation_id, messageContent);
 
             // No hacemos nada más, esperamos al webhook
         } catch (error) {
