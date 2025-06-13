@@ -34,6 +34,8 @@ export function initializeWebSocket(server) {
  * @param {Object} socket - El objeto socket del cliente conectado
  */
 function handleConnection(socket) {
+    console.log('New WebSocket connection:', socket.id);
+
     // Cuando un usuario se autentica
     socket.on('authenticate', (userId, callback) => {
         try {
@@ -43,6 +45,7 @@ function handleConnection(socket) {
                 return;
             }
 
+            console.log('User authenticated:', { userId, socketId: socket.id });
             connectedUsers.set(String(userId), socket.id);
             callback?.({ success: true });
         } catch (error) {
@@ -51,40 +54,40 @@ function handleConnection(socket) {
         }
     });
 
-    // Cuando llega un mensaje de chat
-    socket.on('chat_message', async (data, callback) => {
-        try {
-            const { groupId, userId, message } = data;
-            if (!groupId || !userId || !message) {
-                console.error('Error: datos incompletos en chat_message:', data);
-                callback({ success: false, error: 'Datos incompletos' });
-                return;
-            }
+    // // Cuando llega un mensaje de chat
+    // socket.on('chat_message', async (data, callback) => {
+    //     try {
+    //         const { groupId, userId, message } = data;
+    //         if (!groupId || !userId || !message) {
+    //             console.error('Error: datos incompletos en chat_message:', data);
+    //             callback({ success: false, error: 'Datos incompletos' });
+    //             return;
+    //         }
 
-            // Obtener el nombre del usuario
-            const user = await User.findByPk(userId);
-            if (!user) {
-                throw new Error('Usuario no encontrado');
-            }
+    //         // Obtener el nombre del usuario
+    //         const user = await User.findByPk(userId);
+    //         if (!user) {
+    //             throw new Error('Usuario no encontrado');
+    //         }
 
-            const groupIdStr = String(groupId);
-            const roomName = `group_${groupIdStr}`;
+    //         const groupIdStr = String(groupId);
+    //         const roomName = `group_${groupIdStr}`;
 
-            // Emitir el mensaje a la sala
-            io.to(roomName).emit('chat_message', {
-                groupId: groupIdStr,
-                userId,
-                message,
-                sender_name: user.name,
-                timestamp: new Date().toISOString()
-            });
+    //         // Emitir el mensaje a la sala
+    //         io.to(roomName).emit('chat_message', {
+    //             groupId: groupIdStr,
+    //             userId,
+    //             message,
+    //             sender_name: user.name,
+    //             timestamp: new Date().toISOString()
+    //         });
 
-            callback({ success: true });
-        } catch (error) {
-            console.error('Error al procesar mensaje:', error);
-            callback({ success: false, error: error.message });
-        }
-    });
+    //         callback({ success: true });
+    //     } catch (error) {
+    //         console.error('Error al procesar mensaje:', error);
+    //         callback({ success: false, error: error.message });
+    //     }
+    // });
 
     // Cuando un usuario quiere unirse a un grupo
     socket.on('join_group', async (data, callback) => {
@@ -99,14 +102,27 @@ function handleConnection(socket) {
             const groupIdStr = String(groupId);
             const roomName = `group_${groupIdStr}`;
 
+            console.log('Joining group:', {
+                userId: Array.from(connectedUsers.entries()).find(([_, sid]) => sid === socket.id)?.[0],
+                socketId: socket.id,
+                groupId: groupIdStr,
+                roomName,
+                currentRooms: Array.from(socket.rooms)
+            });
+
             // Verificar si el usuario ya está en la sala
             if (socket.rooms.has(roomName)) {
+                console.log('User already in room:', roomName);
                 callback({ success: true });
                 return;
             }
 
             // Unir al socket a la sala
             await socket.join(roomName);
+            console.log('User joined room:', {
+                roomName,
+                newRooms: Array.from(socket.rooms)
+            });
             callback({ success: true });
         } catch (error) {
             console.error('Error al unir socket a grupo:', error);
@@ -138,8 +154,19 @@ function handleConnection(socket) {
  */
 export function emitToGroup(groupId, event, data) {
     if (io) {
+        const roomName = `group_${groupId}`;
+        console.log('Emitting to group:', {
+            roomName,
+            event,
+            data,
+            connectedUsers: Array.from(connectedUsers.entries()),
+            rooms: Array.from(io.sockets.adapter.rooms.keys())
+        });
+
         // Enviamos el evento a todos los sockets en la sala del grupo
-        io.to(`group_${groupId}`).emit(event, data);
+        io.to(roomName).emit(event, data);
+    } else {
+        console.error('WebSocket server not initialized');
     }
 }
 
