@@ -391,7 +391,8 @@ async function resetTicketCustomAttributes(conversationId) {
     const payload = {
         custom_attributes: {
             zendesk_ticket_priority: "--",
-            zendesk_equipo_de_resolucin: "--"
+            zendesk_equipo_de_resolucin: "--",
+            casa: "--"
         }
     };
     const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/custom_attributes`;
