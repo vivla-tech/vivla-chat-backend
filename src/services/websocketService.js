@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
-import { User } from '../models/index.js';
+import { User, Group, Message } from '../models/index.js';
+import { chatwootSendMessage } from '../services/chatwootService.js';
 
 // Estado global del servicio WebSocket
 let io = null;
@@ -54,40 +55,49 @@ function handleConnection(socket) {
         }
     });
 
-    // // Cuando llega un mensaje de chat
-    // socket.on('chat_message', async (data, callback) => {
-    //     try {
-    //         const { groupId, userId, message } = data;
-    //         if (!groupId || !userId || !message) {
-    //             console.error('Error: datos incompletos en chat_message:', data);
-    //             callback({ success: false, error: 'Datos incompletos' });
-    //             return;
-    //         }
+    // Cuando llega un mensaje por WebSocket
+    socket.on('send_message', async (data, callback) => {
+        try {
+            const { groupId, userId, content } = data;
+            if (!groupId || !userId || !content) {
+                console.error('Error: datos incompletos en send_message:', data);
+                callback({ success: false, error: 'Datos incompletos' });
+                return;
+            }
 
-    //         // Obtener el nombre del usuario
-    //         const user = await User.findByPk(userId);
-    //         if (!user) {
-    //             throw new Error('Usuario no encontrado');
-    //         }
+            // Buscar el grupo y usuario
+            const group = await Group.findByPk(groupId);
+            if (!group) {
+                throw new Error('Grupo no encontrado');
+            }
 
-    //         const groupIdStr = String(groupId);
-    //         const roomName = `group_${groupIdStr}`;
+            const user = await User.findByPk(userId);
+            if (!user) {
+                throw new Error('Usuario no encontrado');
+            }
 
-    //         // Emitir el mensaje a la sala
-    //         io.to(roomName).emit('chat_message', {
-    //             groupId: groupIdStr,
-    //             userId,
-    //             message,
-    //             sender_name: user.name,
-    //             timestamp: new Date().toISOString()
-    //         });
+            // Enviar a Chatwoot
+            const messageContent = `**${user.name}**\n\n${content}`;
+            const cwResponse = await chatwootSendMessage(group.cw_conversation_id, messageContent);
 
-    //         callback({ success: true });
-    //     } catch (error) {
-    //         console.error('Error al procesar mensaje:', error);
-    //         callback({ success: false, error: error.message });
-    //     }
-    // });
+            // Guardar en BD
+            const newMessage = await Message.create({
+                group_id: groupId,
+                sender_id: userId,
+                sender_name: user.name,
+                message_type: 'text',
+                direction: 'outgoing',
+                content: content,
+                cw_message_id: cwResponse.id
+            });
+
+            // Ya no emitimos aquí, esperamos al webhook de Chatwoot
+            callback({ success: true, message: newMessage });
+        } catch (error) {
+            console.error('Error al procesar mensaje:', error);
+            callback({ success: false, error: error.message });
+        }
+    });
 
     // Cuando un usuario quiere unirse a un grupo
     socket.on('join_group', async (data, callback) => {
