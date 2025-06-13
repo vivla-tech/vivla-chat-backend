@@ -114,14 +114,6 @@ export const handleTicketStatusChange = async (ticketDetail, event) => {
             
         sendInternalNoteMessage(ticketDetail.external_id, ticketMessage);
 
-        // Aquí puedes implementar la lógica específica para manejar los cambios de estado
-        // Por ejemplo:
-        // - Actualizar el estado en tu base de datos
-        // - Notificar a otros sistemas
-        // - Enviar notificaciones
-        // - etc.
-
-        // Por ahora solo logueamos la información
         return {
             success: true,
             ticketId: ticketDetail.id,

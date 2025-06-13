@@ -238,12 +238,7 @@ export const chatwootWebhook = async (req, res) => {
                     content: messageContent
                 });
 
-                console.log('Nuevo mensaje creado:', {
-                    message_id: newMessage.id,
-                    group_id: group.id,
-                    sender: senderUser.name,
-                    content: content
-                });
+                console.log('Nuevo mensaje incoming creado');
 
             }else if(message_type === 'outgoing') {
                 const user = await User.findOne({ where: { firebase_uid: '0000' } });
@@ -275,12 +270,7 @@ export const chatwootWebhook = async (req, res) => {
                     content: cleanContent
                 });
 
-                console.log('Nuevo mensaje creado:', {
-                    message_id: newMessage.id,
-                    group_id: group.id,
-                    sender: sender.name,
-                    content: cleanContent
-                });
+                console.log('Nuevo mensaje outgoingcreado');
             }
             // console.log('Chatwoot Full Message Created Event:', req.body);
         } else if (event === 'message_created' && isPrivate && (content.toLowerCase().includes('@ticket') || content.toLowerCase().includes('@zendesk'))) {
@@ -305,10 +295,11 @@ export const chatwootWebhook = async (req, res) => {
 
             const cleanedMessage = cleanTicketMessage(content);
             const newTicket = await createTicket(groupOwner.name, groupOwner.email, sender.name, cleanedMessage, zendesk_ticket_priority, casa, zendesk_equipo_de_resolucin, conversation.id, true);
-            console.log('Ticket creado:', newTicket);
+            console.log('Ticket creado');
             const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${newTicket.id}`;
             const ticketMessage = `👋 Hola ${sender.name}\n\nTicket creado:\n - 🆔 Id: **${newTicket.id}**\n - 📝 Prioridad: **${zendesk_ticket_priority}**\n - 📍 Casa: **${casa}**\n - 🔍 Equipo de resolución: **${zendesk_equipo_de_resolucin}**\n - 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
             await sendInternalNote(conversation.id, ticketMessage);
+            console.log('Nota interna enviada');
             // TODO: usar IA para: formatear mensaje, obtener la casa y el destino y la prioridad
         }
         else {
@@ -349,11 +340,6 @@ async function sendInternalMessage(conversation_id, content) {
         throw new Error('Faltan datos requeridos: conversation_id y content son necesarios');
     }
 
-    console.log('Sending internal message to Chatwoot:', {
-        conversation_id,
-        content
-    });
-
     return await chatwootSendMessage(conversation_id, content);
 }
 
@@ -368,12 +354,6 @@ async function sendPublicMessage(client_id, conversation_id, content) {
     if (!client_id || !conversation_id || !content) {
         throw new Error('Faltan datos requeridos: client_id, conversation_id y content son necesarios');
     }
-
-    console.log('Sending public message to Chatwoot:', {
-        client_id,
-        conversation_id,
-        content
-    });
 
     return await sendClientMessage(client_id, conversation_id, content);
 }

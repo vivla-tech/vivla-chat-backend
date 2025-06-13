@@ -161,12 +161,6 @@ async function sendMessage(conversationId, content) {
     // content_attributes: { participant_id: "oleoleid00222" },
     };
     const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/messages`;
-    console.log('Sending message to Chatwoot:', {
-        conversationId,
-        content,
-        payload,
-        url
-    });
   return await chatwootRequest(url, { method: 'POST', body: JSON.stringify(payload) });
 }
 
@@ -184,12 +178,6 @@ async function sendInternalNoteMessage(conversationId, content) {
       content_type: "text",
       };
       const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/messages`;
-      console.log('Sending message to Chatwoot:', {
-          conversationId,
-          content,
-          payload,
-          url
-      });
     return await chatwootRequest(url, { method: 'POST', body: JSON.stringify(payload) });
   }
 
