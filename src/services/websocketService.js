@@ -56,46 +56,34 @@ function handleConnection(socket) {
     });
 
     // Cuando llega un mensaje por WebSocket
-    socket.on('send_message', async (data, callback) => {
+    socket.on('send_message', async (data) => {
         try {
             const { groupId, userId, content } = data;
             if (!groupId || !userId || !content) {
                 console.error('Error: datos incompletos en send_message:', data);
-                callback({ success: false, error: 'Datos incompletos' });
                 return;
             }
 
             // Buscar el grupo y usuario
             const group = await Group.findByPk(groupId);
             if (!group) {
-                throw new Error('Grupo no encontrado');
+                console.error('Grupo no encontrado:', groupId);
+                return;
             }
 
             const user = await User.findByPk(userId);
             if (!user) {
-                throw new Error('Usuario no encontrado');
+                console.error('Usuario no encontrado:', userId);
+                return;
             }
 
             // Enviar a Chatwoot
             const messageContent = `**${user.name}**\n\n${content}`;
-            const cwResponse = await chatwootSendMessage(group.cw_conversation_id, messageContent);
+            await chatwootSendMessage(group.cw_conversation_id, messageContent);
 
-            // Guardar en BD
-            const newMessage = await Message.create({
-                group_id: groupId,
-                sender_id: userId,
-                sender_name: user.name,
-                message_type: 'text',
-                direction: 'outgoing',
-                content: content,
-                cw_message_id: cwResponse.id
-            });
-
-            // Ya no emitimos aquí, esperamos al webhook de Chatwoot
-            callback({ success: true, message: newMessage });
+            // No hacemos nada más, esperamos al webhook
         } catch (error) {
             console.error('Error al procesar mensaje:', error);
-            callback({ success: false, error: error.message });
         }
     });
 
