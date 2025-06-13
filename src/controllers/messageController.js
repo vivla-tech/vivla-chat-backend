@@ -1,6 +1,6 @@
 import { Message, User, Group, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
-import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
+ import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
 import { createTicket } from '../services/zendeskService.js';
 
 
@@ -278,7 +278,7 @@ export const chatwootWebhook = async (req, res) => {
             const { custom_attributes } = req.body.conversation;
             const { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin } = custom_attributes;
 
-            if(!casa || !zendesk_ticket_priority || !zendesk_equipo_de_resolucin) {
+            if((!casa || !zendesk_ticket_priority || !zendesk_equipo_de_resolucin) || (casa === '--' || zendesk_ticket_priority === '--' || zendesk_equipo_de_resolucin === '--')) {
                 await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Faltan datos requeridos para crear el ticket');
                 return res.status(400).json({ error: 'Faltan datos requeridos para crear el ticket' });
             }
