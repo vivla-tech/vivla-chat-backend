@@ -1,6 +1,6 @@
 import { Message, User, Group, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
-import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage } from '../services/chatwootService.js';
+import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
 import { createTicket } from '../services/zendeskService.js';
 
 
@@ -300,6 +300,8 @@ export const chatwootWebhook = async (req, res) => {
             const ticketMessage = `👋 Hola ${sender.name}\n\nTicket creado:\n - 🆔 Id: **${newTicket.id}**\n - 📝 Prioridad: **${zendesk_ticket_priority}**\n - 📍 Casa: **${casa}**\n - 🔍 Equipo de resolución: **${zendesk_equipo_de_resolucin}**\n - 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
             await sendInternalNote(conversation.id, ticketMessage);
             console.log('Nota interna enviada');
+            await resetTicketCustomAttributes(conversation.id);
+            console.log('Custom attributes reseteados');
             // TODO: usar IA para: formatear mensaje, obtener la casa y el destino y la prioridad
         }
         else {

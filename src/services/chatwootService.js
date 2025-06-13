@@ -379,6 +379,28 @@ async function toggleConversationStatus(conversationId, status) {
     });
 }
 
+/**
+ * Resetea los custom attributes de una conversación en Chatwoot a valores fijos.
+ * @param {number|string} conversationId - El ID de la conversación
+ * @returns {Promise<Object>} - Respuesta de la API de Chatwoot
+ */
+async function resetTicketCustomAttributes(conversationId) {
+    if (!conversationId) {
+        throw new Error('conversationId is required');
+    }
+    const payload = {
+        custom_attributes: {
+            zendesk_ticket_priority: "",
+            zendesk_equipo_de_resolucin: ""
+        }
+    };
+    const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}/custom_attributes`;
+    return await chatwootRequest(url, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+}
+
 export {
     listUsers,
     createUser,
@@ -394,5 +416,6 @@ export {
     toggleConversationStatus,
     createClientConversation as createConversationFromClient,
     getClientSingleConversation,
-    sendClientMessage
+    sendClientMessage,
+    resetTicketCustomAttributes
 }; 
