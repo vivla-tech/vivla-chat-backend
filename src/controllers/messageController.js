@@ -284,7 +284,7 @@ export const chatwootWebhook = async (req, res) => {
                 emitToGroup(group.group_id, 'chat_message', {
                     groupId: group.group_id,
                     userId: user.id,
-                    message: content,
+                    message: cleanContent,
                     sender_name: 'VIVLA',
                     timestamp: newMessage.created_at
                 });
