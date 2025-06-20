@@ -27,7 +27,6 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "firebase-admin": "^13.4.0",
-    "multer": "^2.0.1",
     "node-zendesk": "^2.0.0",
     "pg": "^8.16.0",
     "pg-hstore": "^2.3.4",

@@ -9,7 +9,6 @@ import groupRoutes from './routes/groupRoutes.js';
 import invitationRoutes from './routes/invitationRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
-import fileRoutes from './routes/fileRoutes.js';
 import { websocketService } from './services/websocketService.js';
 import zendeskRoutes from './routes/zendeskRoutes.js';
 
@@ -30,7 +29,6 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/files', fileRoutes);
 app.use('/api/zendesk', zendeskRoutes);
 
 // Configuración de la aplicación
