@@ -1,6 +1,6 @@
 {
   "development": {
-    "username": "oscar",
+    "username": "chat_user",
     "password": "123456",
     "database": "vivla_chat",
     "host": "localhost",
