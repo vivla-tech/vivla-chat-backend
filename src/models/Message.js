@@ -32,6 +32,11 @@ const Message = sequelize.define('Message', {
         allowNull: false,
         defaultValue: 'text'
     },
+
+    media_url: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     direction: {
         type: DataTypes.STRING,
         allowNull: false,
