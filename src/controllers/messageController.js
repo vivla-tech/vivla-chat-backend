@@ -359,7 +359,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         message_type: media_type,
         direction: direction,
         content: '',
-        media_url: media_url
+        media_url: media_url,
+        thumb_url: thumb_url,
     });
 
     emitToGroup(group_id, 'chat_message', {
@@ -368,7 +369,6 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         // message: media_url,
         sender_name: sender_name,
         media_url: media_url,
-        thumb_url: thumb_url,
         message_type: 'image',
         timestamp: newMessage.created_at
     });
