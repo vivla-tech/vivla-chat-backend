@@ -30,6 +30,20 @@
             "restart": true,
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "Debug WebSocket Test",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "/Users/raulalonso/.nvm/versions/node/v22.16.0/bin/node",
+            "program": "${workspaceFolder}/tests/websocket-real-test.js",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "NODE_ENV": "development"
+            }
         }
     ]
 }
