@@ -182,7 +182,7 @@ const cleanTicketMessage = (message) => {
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
     try {
-        const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox } = req.body;
+        const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox, attachments } = req.body;
 
         // Solo mostrar detalles completos para message_created
         if (event === 'message_created' && !isPrivate) {
@@ -214,7 +214,8 @@ export const chatwootWebhook = async (req, res) => {
                     id: inbox?.id,
                     name: inbox?.name,
                     channel_type: inbox?.channel_type
-                }
+                },
+                attachments: attachments
             });
             if (message_type === 'incoming') {
                 const ownerUser = await User.findOne({ where: { email: sender.email } });
@@ -229,24 +230,26 @@ export const chatwootWebhook = async (req, res) => {
                 const senderUser = await findUserInGroupByContent(group, ownerUser, content);
                 const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
 
-                // Crear un nuevo mensaje en la tabla de Messages
-                const newMessage = await Message.create({
-                    group_id: group.group_id,
-                    sender_id: senderUser.id,
-                    sender_name: senderName,
-                    message_type: 'text',
-                    direction: 'incoming',
-                    content: messageContent
-                });
+                await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', 'text', messageContent);
 
-                // Emitir el mensaje por WebSocket a todos los usuarios del grupo
-                emitToGroup(group.group_id, 'chat_message', {
-                    groupId: group.group_id,
-                    userId: senderUser.id,
-                    message: messageContent,
-                    sender_name: senderName,
-                    timestamp: newMessage.created_at
-                });
+                // // Crear un nuevo mensaje en la tabla de Messages
+                // const newMessage = await Message.create({
+                //     group_id: group.group_id,
+                //     sender_id: senderUser.id,
+                //     sender_name: senderName,
+                //     message_type: 'text',
+                //     direction: 'incoming',
+                //     content: messageContent
+                // });
+
+                // // Emitir el mensaje por WebSocket a todos los usuarios del grupo
+                // emitToGroup(group.group_id, 'chat_message', {
+                //     groupId: group.group_id,
+                //     userId: senderUser.id,
+                //     message: messageContent,
+                //     sender_name: senderName,
+                //     timestamp: newMessage.created_at
+                // });
 
                 console.log('Nuevo mensaje creado y emitido.');
 
@@ -271,23 +274,24 @@ export const chatwootWebhook = async (req, res) => {
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
                 
                 // Crear un nuevo mensaje en la tabla de Messages
-                const newMessage = await Message.create({
-                    group_id: group.group_id,
-                    sender_id: user.id,
-                    sender_name: agentName,
-                    message_type: 'text',
-                    direction: 'outgoing',
-                    content: cleanContent
-                });
+                await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', 'text', cleanContent);
+                // const newMessage = await Message.create({
+                //     group_id: group.group_id,
+                //     sender_id: user.id,
+                //     sender_name: agentName,
+                //     message_type: 'text',
+                //     direction: 'outgoing',
+                //     content: cleanContent
+                // });
 
-                // Emitir el mensaje por WebSocket a todos los usuarios del grupo
-                emitToGroup(group.group_id, 'chat_message', {
-                    groupId: group.group_id,
-                    userId: user.id,
-                    message: cleanContent,
-                    sender_name: 'VIVLA',
-                    timestamp: newMessage.created_at
-                });
+                // // Emitir el mensaje por WebSocket a todos los usuarios del grupo
+                // emitToGroup(group.group_id, 'chat_message', {
+                //     groupId: group.group_id,
+                //     userId: user.id,
+                //     message: cleanContent,
+                //     sender_name: 'VIVLA',
+                //     timestamp: newMessage.created_at
+                // });
 
                 console.log('Nuevo mensaje VIVLA creado y emitido.');
             }
@@ -341,6 +345,27 @@ export const chatwootWebhook = async (req, res) => {
         });
     }
 };
+
+async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, content) {
+    // Crear un nuevo mensaje en la tabla de Messages
+    const newMessage = await Message.create({
+        group_id: group_id,
+        sender_id: sender_id,
+        sender_name: sender_name,
+        message_type: 'text',
+        direction: direction,
+        content: e
+    });
+
+    // Emitir el mensaje por WebSocket a todos los usuarios del grupo
+    emitToGroup(group_id, 'chat_message', {
+        groupId: group_id,
+        userId: sender_id,
+        message: content,
+        sender_name: sender_name,
+        timestamp: newMessage.created_at
+    });
+}
 
 async function sendInternalNote(conversation_id, content) {
     if (!conversation_id || !content) {
