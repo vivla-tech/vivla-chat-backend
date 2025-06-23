@@ -232,7 +232,17 @@ export const chatwootWebhook = async (req, res) => {
 
                 if(attachments && attachments.length > 0){
                     for(const attachment of attachments){
-                        await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, messageContent);
+                        if(attachment.data_url){
+                            // Limpiar y corregir el formato de data_url
+                            const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
+                            console.log(`📎 Procesando attachment con URL limpia: ${cleanDataUrl}`);
+                            
+                            // Usar la URL limpia para el mensaje de media
+                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, cleanDataUrl);
+                        } else {
+                            // Si no hay data_url, usar el content como fallback
+                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, messageContent);
+                        }
                     }
                 }else{
                     // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
@@ -445,3 +455,45 @@ export const sendMessage = async (req, res) => {
         });
     }
 };
+
+/**
+ * Limpia y corrige el formato de data_url de Chatwoot
+ * Convierte URLs mal formateadas como "http://https/..." a la URL base de Chatwoot
+ * @param {string} dataUrl - La URL mal formateada
+ * @returns {string} - La URL corregida
+ */
+function cleanChatwootDataUrl(dataUrl) {
+    if (!dataUrl) return dataUrl;
+    
+    console.log(`🔧 Limpiando data_url mal formateado: ${dataUrl}`);
+    
+    // Si la URL comienza con "http://https/", la corregimos
+    if (dataUrl.startsWith('http://https/')) {
+        // Extraemos la parte después de "http://https/"
+        const pathPart = dataUrl.replace('http://https/', '');
+        
+        // Obtenemos la base URL de Chatwoot del .env y removemos "api/v1" si está presente
+        let baseUrl = process.env.CHATWOOT_BASE_URL || 'https://chatwoot-chatwoot.nx8jix.easypanel.host';
+        
+        // Removemos "api/v1" del final si está presente
+        if (baseUrl.endsWith('/api/v1')) {
+            baseUrl = baseUrl.replace('/api/v1', '');
+        } else if (baseUrl.endsWith('api/v1')) {
+            baseUrl = baseUrl.replace('api/v1', '');
+        }
+        
+        // Aseguramos que la base URL termine con /
+        if (!baseUrl.endsWith('/')) {
+            baseUrl += '/';
+        }
+        
+        // Construimos la URL correcta
+        const cleanUrl = `${baseUrl}${pathPart}`;
+        
+        console.log(`✅ URL corregida: ${cleanUrl}`);
+        return cleanUrl;
+    }
+    
+    // Si ya tiene el formato correcto, la devolvemos tal como está
+    return dataUrl;
+}
