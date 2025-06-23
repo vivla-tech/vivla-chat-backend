@@ -232,7 +232,7 @@ export const chatwootWebhook = async (req, res) => {
 
                 if(attachments && attachments.length > 0){
                     for(const attachment of attachments){
-                        await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, attachment.data_url);
+                        await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, messageContent);
                     }
                 }
                 // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket

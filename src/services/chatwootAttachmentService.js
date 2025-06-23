@@ -48,7 +48,7 @@ export async function sendFirebaseImageToChatwoot(conversationId, firebaseImageU
     form.append('attachments[]', imageBuffer, { filename });
     
     // Adjuntamos el resto de los campos del formulario
-    form.append('content', 'Aquí está la imagen solicitada.');
+    form.append('content', firebaseImageUrl);
     form.append('message_type', 'incoming'); // O 'outgoing' si lo envía el agente
     // Chatwoot puede inferir el file_type, pero es bueno ser explícito
     // form.append('file_type', 'image'); 
