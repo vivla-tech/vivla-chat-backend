@@ -230,7 +230,7 @@ export const chatwootWebhook = async (req, res) => {
                 const senderUser = await findUserInGroupByContent(group, ownerUser, content);
                 const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
 
-                await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', 'text', messageContent);
+                await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
 
                 // // Crear un nuevo mensaje en la tabla de Messages
                 // const newMessage = await Message.create({
@@ -274,7 +274,7 @@ export const chatwootWebhook = async (req, res) => {
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
                 
                 // Crear un nuevo mensaje en la tabla de Messages
-                await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', 'text', cleanContent);
+                await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
                 // const newMessage = await Message.create({
                 //     group_id: group.group_id,
                 //     sender_id: user.id,
