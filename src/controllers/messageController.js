@@ -344,6 +344,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         userId: sender_id,
         message: content,
         sender_name: sender_name,
+        message_type: 'text',
         timestamp: newMessage.created_at
     });
 }
@@ -364,6 +365,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         userId: sender_id,
         message: media_url,
         sender_name: sender_name,
+        media_url: media_url,
+        message_type: media_type,
         timestamp: newMessage.created_at
     });
 }
