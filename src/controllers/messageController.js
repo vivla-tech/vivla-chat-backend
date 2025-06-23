@@ -234,10 +234,11 @@ export const chatwootWebhook = async (req, res) => {
                     for(const attachment of attachments){
                         await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, messageContent);
                     }
+                }else{
+                    // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
+                    await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
                 }
-                // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
-                await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
-
+                
                 console.log('Nuevo mensaje creado y emitido.');
 
             } else if (message_type === 'outgoing') { // MENSAJES DE AGENTES (VIVLA)
