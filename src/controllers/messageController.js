@@ -337,7 +337,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     });
 }
 
-async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, media_url, media_type) {
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, media_type, media_url) {
     const newMessage = await Message.create({
         group_id: group_id,
         sender_id: sender_id,
