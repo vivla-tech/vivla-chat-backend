@@ -37,6 +37,11 @@ const Message = sequelize.define('Message', {
         type: DataTypes.STRING,
         allowNull: true
     },
+    thumb_url: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'URL de la imagen thumbnail para mensajes de tipo media'
+    },
     direction: {
         type: DataTypes.STRING,
         allowNull: false,

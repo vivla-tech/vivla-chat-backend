@@ -236,9 +236,11 @@ export const chatwootWebhook = async (req, res) => {
                             // Limpiar y corregir el formato de data_url
                             const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
                             console.log(`📎 Procesando attachment con URL limpia: ${cleanDataUrl}`);
+                            const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
+                            console.log(`📎 Procesando attachment con URL limpia: ${cleanThumbUrl}`);
                             
                             // Usar la URL limpia para el mensaje de media
-                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, cleanDataUrl);
+                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, cleanDataUrl, cleanThumbUrl);
                         } else {
                             // Si no hay data_url, usar el content como fallback
                             await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, messageContent);
@@ -349,7 +351,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     });
 }
 
-async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, media_type, media_url) {
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, media_type, media_url, thumb_url) {
     const newMessage = await Message.create({
         group_id: group_id,
         sender_id: sender_id,
@@ -366,6 +368,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         // message: media_url,
         sender_name: sender_name,
         media_url: media_url,
+        thumb_url: thumb_url,
         message_type: 'image',
         timestamp: newMessage.created_at
     });
