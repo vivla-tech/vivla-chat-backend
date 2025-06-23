@@ -217,7 +217,7 @@ export const chatwootWebhook = async (req, res) => {
                 },
                 attachments: attachments
             });
-            if (message_type === 'incoming') {
+            if (message_type === 'incoming') { // MENSAJES DE USUARIOS
                 const ownerUser = await User.findOne({ where: { email: sender.email } });
                 if (!ownerUser) {
                     return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -230,30 +230,17 @@ export const chatwootWebhook = async (req, res) => {
                 const senderUser = await findUserInGroupByContent(group, ownerUser, content);
                 const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
 
+                if(attachments && attachments.length > 0){
+                    for(const attachment of attachments){
+                        await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, attachment.data_url);
+                    }
+                }
+                // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
                 await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
-
-                // // Crear un nuevo mensaje en la tabla de Messages
-                // const newMessage = await Message.create({
-                //     group_id: group.group_id,
-                //     sender_id: senderUser.id,
-                //     sender_name: senderName,
-                //     message_type: 'text',
-                //     direction: 'incoming',
-                //     content: messageContent
-                // });
-
-                // // Emitir el mensaje por WebSocket a todos los usuarios del grupo
-                // emitToGroup(group.group_id, 'chat_message', {
-                //     groupId: group.group_id,
-                //     userId: senderUser.id,
-                //     message: messageContent,
-                //     sender_name: senderName,
-                //     timestamp: newMessage.created_at
-                // });
 
                 console.log('Nuevo mensaje creado y emitido.');
 
-            } else if (message_type === 'outgoing') {
+            } else if (message_type === 'outgoing') { // MENSAJES DE AGENTES (VIVLA)
                 const user = await User.findOne({ where: { firebase_uid: '0000' } });
                 if (!user) {
                     return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
@@ -273,25 +260,8 @@ export const chatwootWebhook = async (req, res) => {
                 }
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
                 
-                // Crear un nuevo mensaje en la tabla de Messages
+                // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
                 await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
-                // const newMessage = await Message.create({
-                //     group_id: group.group_id,
-                //     sender_id: user.id,
-                //     sender_name: agentName,
-                //     message_type: 'text',
-                //     direction: 'outgoing',
-                //     content: cleanContent
-                // });
-
-                // // Emitir el mensaje por WebSocket a todos los usuarios del grupo
-                // emitToGroup(group.group_id, 'chat_message', {
-                //     groupId: group.group_id,
-                //     userId: user.id,
-                //     message: cleanContent,
-                //     sender_name: 'VIVLA',
-                //     timestamp: newMessage.created_at
-                // });
 
                 console.log('Nuevo mensaje VIVLA creado y emitido.');
             }
@@ -362,6 +332,26 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         groupId: group_id,
         userId: sender_id,
         message: content,
+        sender_name: sender_name,
+        timestamp: newMessage.created_at
+    });
+}
+
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, media_url, media_type) {
+    const newMessage = await Message.create({
+        group_id: group_id,
+        sender_id: sender_id,
+        sender_name: sender_name,
+        message_type: media_type,
+        direction: direction,
+        content: '',
+        media_url: media_url
+    });
+
+    emitToGroup(group_id, 'chat_message', {
+        groupId: group_id,
+        userId: sender_id,
+        message: media_url,
         sender_name: sender_name,
         timestamp: newMessage.created_at
     });
