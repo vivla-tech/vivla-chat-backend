@@ -363,7 +363,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
     emitToGroup(group_id, 'chat_message', {
         groupId: group_id,
         userId: sender_id,
-        message: media_url,
+        // message: media_url,
         sender_name: sender_name,
         media_url: media_url,
         message_type: media_type,
