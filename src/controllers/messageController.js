@@ -237,7 +237,7 @@ export const chatwootWebhook = async (req, res) => {
                             const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
                             console.log(`📎 Procesando attachment con URL limpia: ${cleanDataUrl}`);
                             const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
-                            console.log(`📎 Procesando attachment con URL limpia: ${cleanThumbUrl}`);
+                            console.log(`📎 Procesando attachment con URL Thumbnail limpia: ${cleanThumbUrl}`);
                             
                             // Usar la URL limpia para el mensaje de media
                             await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, cleanDataUrl, cleanThumbUrl);
