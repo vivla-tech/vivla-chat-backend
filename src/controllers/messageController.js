@@ -354,7 +354,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         sender_name: sender_name,
         message_type: 'text',
         direction: direction,
-        content: e
+        content: content
     });
 
     // Emitir el mensaje por WebSocket a todos los usuarios del grupo
