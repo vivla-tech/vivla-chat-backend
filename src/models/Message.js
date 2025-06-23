@@ -34,7 +34,7 @@ const Message = sequelize.define('Message', {
     },
 
     media_url: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: true
     },
     thumb_url: {
