@@ -366,7 +366,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         // message: media_url,
         sender_name: sender_name,
         media_url: media_url,
-        message_type: media_type,
+        message_type: 'image',
         timestamp: newMessage.created_at
     });
 }
