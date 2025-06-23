@@ -265,16 +265,27 @@ export const chatwootWebhook = async (req, res) => {
 
                 let isBotMessage = false;
                 let agentName = 'VIVLA';
-                if(content.includes('🤖')){
+                if(content && content.includes('🤖')){
                     isBotMessage = true;
                     agentName = 'VIVLA - 🤖';
                 }else{
                     agentName = `VIVLA - ${capitalizeFirstLetter(sender.name)}`;
                 }
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
+
+                if(attachments && attachments.length > 0){
+                    for(const attachment of attachments){
+                        if(attachment.data_url){
+                            const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
+                            const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
+                            await storeAndEmitMediaMessage(group.group_id, user.id, agentName, 'outgoing', attachment.file_type, cleanDataUrl, cleanThumbUrl);
+                        }
+                    }
+                }else{
+                    // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
+                    await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
+                }
                 
-                // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
-                await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
 
                 console.log('Nuevo mensaje VIVLA creado y emitido.');
             }
