@@ -8,7 +8,7 @@ import path from 'path';
  * @param {string} firebaseImageUrl - La URL pública o firmada de la imagen en Firebase Storage.
  * @returns {Promise<object>} La respuesta de la API de Chatwoot.
  */
-export async function sendFirebaseImageToChatwoot(conversationId, firebaseImageUrl) {
+export async function sendFirebaseMediaLinkToChatwoot(conversationId, firebaseImageUrl) {
 
   // --- Variables de configuración (mueve esto a variables de entorno en un proyecto real) ---
   const chatwootAccountId = process.env.CHATWOOT_ACCOUNT_ID;
@@ -87,13 +87,3 @@ export async function sendFirebaseImageToChatwoot(conversationId, firebaseImageU
     throw new Error(`No se pudo completar la operación con Chatwoot: ${error.message}`);
   }
 }
-
-// --- Ejemplo de uso ---
-const exampleConversationId = '40';
-// NOTA: Esta URL debe ser públicamente accesible o una URL firmada de Firebase.
-const exampleFirebaseUrl = 'https://firebasestorage.googleapis.com/v0/b/your-project-id.appspot.com/o/images%2Fsome-image.png?alt=media&token=some-token';
-
-// (Descomenta la siguiente línea para probar)
-// sendFirebaseImageToChatwoot(exampleConversationId, exampleFirebaseUrl)
-//   .then(data => console.log('Respuesta de la API:', JSON.stringify(data, null, 2)))
-//   .catch(err => console.error(err));
