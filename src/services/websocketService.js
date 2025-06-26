@@ -1,10 +1,10 @@
 import { Server } from 'socket.io';
 import { User, Group } from '../models/index.js';
 import { sendMessage } from '../services/chatwootService.js';
-import { sendFirebaseMediaLinkToChatwoot } from '../services/chatwootAttachmentService.js';
+import { sendMediaLinkToChatwoot } from '../services/chatwootAttachmentService.js';
 
 // Rename the function for consistency
-const sendMediaMessage = sendFirebaseMediaLinkToChatwoot;
+const sendMediaMessage = sendMediaLinkToChatwoot;
 
 // Estado global del servicio WebSocket
 let io = null;

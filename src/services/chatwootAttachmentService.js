@@ -8,7 +8,7 @@ import path from 'path';
  * @param {string} firebaseImageUrl - La URL pública o firmada de la imagen en Firebase Storage.
  * @returns {Promise<object>} La respuesta de la API de Chatwoot.
  */
-export async function sendFirebaseMediaLinkToChatwoot(conversationId, firebaseImageUrl) {
+export async function sendMediaLinkToChatwoot(conversationId, firebaseImageUrl) {
 
   // --- Variables de configuración (mueve esto a variables de entorno en un proyecto real) ---
   const chatwootAccountId = process.env.CHATWOOT_ACCOUNT_ID;
