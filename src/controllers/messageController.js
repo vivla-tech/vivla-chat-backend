@@ -404,6 +404,7 @@ function obtainFileSizeFromAttachment(attachment) {
         return fileSize;
     } catch (error) {
         console.error('Error al obtener el tamaño del archivo:', error);
+        console.log('Attachment:', attachment);
         return '';
     }
 }
@@ -414,6 +415,7 @@ function obtainFileNameFromAttachment(attachment) {
         return fileName;
     } catch (error) {
         console.error('Error al obtener el nombre del archivo:', error);
+        console.log('Attachment:', attachment);
         return '';
     }
 }
@@ -436,6 +438,7 @@ function obtainFileTypeFromAttachment(attachment) {
         }
     } catch (error) {
         console.error('Error al obtener el tipo de archivo:', error);
+        console.log('Attachment:', attachment);
         return '';
     }
 }
