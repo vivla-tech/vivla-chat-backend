@@ -90,6 +90,7 @@ function handleConnection(socket) {
             }
 
             if (messageType && messageType != 'text') {
+                console.error('📺 🧐 Datos multipedia recibidos:', data);
                 await sendMediaMessage(group.cw_conversation_id, media_url);
             }else{
                 // Enviar a Chatwoot
