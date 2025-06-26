@@ -241,10 +241,10 @@ export const chatwootWebhook = async (req, res) => {
                             console.log(`📎 Procesando attachment con URL Thumbnail limpia: ${cleanThumbUrl}`);
                             
                             // Usar la URL limpia para el mensaje de media
-                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, cleanDataUrl, cleanThumbUrl);
+                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment, cleanDataUrl, cleanThumbUrl);
                         } else {
                             // Si no hay data_url, usar el content como fallback
-                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment.file_type, messageContent);
+                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment, messageContent);
                         }
                     }
                 }else{
@@ -279,7 +279,7 @@ export const chatwootWebhook = async (req, res) => {
                         if(attachment.data_url){
                             const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
                             const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
-                            await storeAndEmitMediaMessage(group.group_id, user.id, agentName, 'outgoing', attachment.file_type, cleanDataUrl, cleanThumbUrl);
+                            await storeAndEmitMediaMessage(group.group_id, user.id, agentName, 'outgoing', attachment, cleanDataUrl, cleanThumbUrl);
                         }
                     }
                 }else{
@@ -363,17 +363,18 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     });
 }
 
-async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, media_type, media_url, thumb_url) {
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, attachment, media_url, thumb_url) {
     
-    const file_size = obtainFileSizeFromAttachment(media_url);
-    const file_name = obtainFileNameFromAttachment(media_url);
-    const file_type = obtainFileTypeFromAttachment(media_url);
+    const file_size = obtainFileSizeFromAttachment(attachment);
+    const file_name = obtainFileNameFromAttachment(attachment);
+    const file_type = obtainFileTypeFromAttachment(attachment);
+    const message_type = attachment.file_type;
 
     const newMessage = await Message.create({
         group_id: group_id,
         sender_id: sender_id,
         sender_name: sender_name,
-        message_type: media_type,
+        message_type: message_type,
         direction: direction,
         content: '',
         media_url: media_url,
@@ -390,7 +391,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         sender_name: sender_name,
         media_url: media_url,
         thumb_url: thumb_url,
-        message_type: media_type,
+        message_type: message_type,
         file_size: file_size,
         file_name: file_name,
         file_type: file_type,
