@@ -165,6 +165,7 @@ function getMessageParts(content, defaultUserName) {
 function cleanBotMessage(content) {
     return content.replace('🤖', '').trim();
 }
+
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
   }
@@ -399,7 +400,7 @@ async function sendInternalNote(conversation_id, content) {
  * @param {string} content - Contenido del mensaje
  * @returns {Promise<Object>} Respuesta de Chatwoot
  */
-async function sendInternalMessage(conversation_id, content) {
+async function sendMessageWithAdminAPI(conversation_id, content) {
     if (!conversation_id || !content) {
         throw new Error('Faltan datos requeridos: conversation_id y content son necesarios');
     }
@@ -414,7 +415,7 @@ async function sendInternalMessage(conversation_id, content) {
  * @param {string} content - Contenido del mensaje
  * @returns {Promise<Object>} Respuesta de Chatwoot
  */
-async function sendPublicMessage(client_id, conversation_id, content) {
+async function sendMessageWithClientAPI(client_id, conversation_id, content) {
     if (!client_id || !conversation_id || !content) {
         throw new Error('Faltan datos requeridos: client_id, conversation_id y content son necesarios');
     }
@@ -452,10 +453,10 @@ export const sendMessage = async (req, res) => {
         let response;
         if (client_id) {
             // Si viene client_id, usar la API pública
-            response = await sendPublicMessage(client_id, conversation_id, messageContent);
+            response = await sendMessageWithClientAPI(client_id, conversation_id, messageContent);
         } else {
             // Si no viene client_id, usar la API interna
-            response = await sendInternalMessage(conversation_id, messageContent);
+            response = await sendMessageWithAdminAPI(conversation_id, messageContent);
         }
 
         return res.status(200).json({
