@@ -364,6 +364,11 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
 }
 
 async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, media_type, media_url, thumb_url) {
+    
+    const file_size = obtainFileSizeFromAttachment(media_url);
+    const file_name = obtainFileNameFromAttachment(media_url);
+    const file_type = obtainFileTypeFromAttachment(media_url);
+
     const newMessage = await Message.create({
         group_id: group_id,
         sender_id: sender_id,
@@ -373,6 +378,9 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         content: '',
         media_url: media_url,
         thumb_url: thumb_url,
+        file_size: file_size,
+        file_name: file_name,
+        file_type: file_type,
     });
 
     emitToGroup(group_id, 'chat_message', {
@@ -383,9 +391,9 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         media_url: media_url,
         thumb_url: thumb_url,
         message_type: media_type,
-        file_size: obtainFileSizeFromAttachment(media_url),
-        file_name: obtainFileNameFromAttachment(media_url),
-        file_type: obtainFileTypeFromAttachment(media_url),
+        file_size: file_size,
+        file_name: file_name,
+        file_type: file_type,
         timestamp: newMessage.created_at
     });
 }
@@ -410,7 +418,7 @@ function obtainFileNameFromAttachment(attachment) {
     }
 }
 
-function obtainFileTypeionFromAttachment(attachment) {
+function obtainFileTypeFromAttachment(attachment) {
     try { 
         const fileExtension = attachment.data_url.split('.').pop();
         if(fileExtension === 'pdf') {
