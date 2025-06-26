@@ -383,8 +383,53 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         media_url: media_url,
         thumb_url: thumb_url,
         message_type: media_type,
+        file_size: obtainFileSizeFromAttachment(media_url),
+        file_name: obtainFileNameFromAttachment(media_url),
+        file_type: obtainFileTypeFromAttachment(media_url),
         timestamp: newMessage.created_at
     });
+}
+
+function obtainFileSizeFromAttachment(attachment) {
+    try {
+        const fileSize = attachment.file_size;
+        return fileSize;
+    } catch (error) {
+        console.error('Error al obtener el tamaño del archivo:', error);
+        return '';
+    }
+}
+
+function obtainFileNameFromAttachment(attachment) {
+    try {
+        const fileName = attachment.data_url.split('/').pop();
+        return fileName;
+    } catch (error) {
+        console.error('Error al obtener el nombre del archivo:', error);
+        return '';
+    }
+}
+
+function obtainFileTypeionFromAttachment(attachment) {
+    try { 
+        const fileExtension = attachment.data_url.split('.').pop();
+        if(fileExtension === 'pdf') {
+            return 'application/pdf';
+        }else if(fileExtension === 'jpg' || fileExtension === 'jpeg' || fileExtension === 'png' || fileExtension === 'gif' || fileExtension === 'bmp' || fileExtension === 'tiff' || fileExtension === 'ico' || fileExtension === 'webp') {
+            return 'image/jpeg';
+        }else if(fileExtension === 'mp4' || fileExtension === 'mov' || fileExtension === 'avi' || fileExtension === 'wmv' || fileExtension === 'flv' || fileExtension === 'mkv') {
+            return 'video/mp4';
+        }else if(fileExtension === 'mp3' || fileExtension === 'wav' || fileExtension === 'ogg' || fileExtension === 'm4a' || fileExtension === 'aac') {
+            return 'audio/mpeg';
+        }else if(fileExtension === 'txt' || fileExtension === 'csv' || fileExtension === 'tsv' || fileExtension === 'json' || fileExtension === 'xml' || fileExtension === 'html' || fileExtension === 'css' || fileExtension === 'js') {
+            return 'text/plain';
+        }else{
+            return 'application/octet-stream';
+        }
+    } catch (error) {
+        console.error('Error al obtener el tipo de archivo:', error);
+        return '';
+    }
 }
 
 async function sendInternalNote(conversation_id, content) {
