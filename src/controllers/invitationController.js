@@ -35,7 +35,7 @@ export const createInvitation = async (req, res) => {
 
         // Usar la URL del frontend desde las variables de entorno
         const frontendUrl = getBaseUrl();
-        const inviteLink = `${frontendUrl}/--/join/${token}?email=${email}`;
+        const inviteLink = `${frontendUrl}join/${token}?email=${email}`;
 
         return res.status(201).json({
             success: true,
