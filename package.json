@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:websocket": "node tests/websocket-real-test.js",
     "db:sync": "node src/config/syncDatabase.js",
     "db:seed:test-user": "node src/seeders/createTestUser.js",
     "db:migrate": "node -e \"console.log('DATABASE_PUBLIC_URL:', process.env.DATABASE_PUBLIC_URL ? process.env.DATABASE_PUBLIC_URL.replace(/:[^:@]*@/, ':****@') : 'not set')\" && NODE_ENV=production sequelize-cli db:migrate",
@@ -23,11 +24,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "firebase-admin": "^13.4.0",
-    "node-fetch": "^3.3.2",
     "node-zendesk": "^2.0.0",
     "pg": "^8.16.0",
     "pg-hstore": "^2.3.4",
@@ -37,7 +38,10 @@
   },
   "devDependencies": {
     "eslint": "^9.26.0",
+    "form-data": "^4.0.3",
+    "node-fetch": "^2.7.0",
     "nodemon": "^3.1.10",
-    "sequelize-cli": "^6.6.3"
+    "sequelize-cli": "^6.6.3",
+    "socket.io-client": "^4.8.1"
   }
 }

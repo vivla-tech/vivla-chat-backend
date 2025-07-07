@@ -1,6 +1,10 @@
 import { Server } from 'socket.io';
 import { User, Group } from '../models/index.js';
 import { sendMessage } from '../services/chatwootService.js';
+import { sendMediaLinkToChatwoot } from '../services/chatwootAttachmentService.js';
+
+// Rename the function for consistency
+const sendMediaMessage = sendMediaLinkToChatwoot;
 
 // Estado global del servicio WebSocket
 let io = null;
@@ -58,10 +62,18 @@ function handleConnection(socket) {
     // Cuando llega un mensaje por WebSocket
     socket.on('send_message', async (data) => {
         try {
-            const { groupId, userId, content } = data;
-            if (!groupId || !userId || !content) {
+            const { groupId, userId, content, messageType, media_url } = data;
+            if (!groupId || !userId || (!messageType == 'text' && !content)) {
                 console.error('Error: datos incompletos en send_message:', data);
                 return;
+            }
+
+            // Log optional parameters if they exist
+            if (messageType) {
+                console.log('Message type received:', messageType);
+            }
+            if (media_url) {
+                console.log('Media URL received:', media_url);
             }
 
             // Buscar el grupo y usuario
@@ -77,9 +89,15 @@ function handleConnection(socket) {
                 return;
             }
 
-            // Enviar a Chatwoot
-            const messageContent = `**${user.name}**\n\n${content}`;
-            await sendMessage(group.cw_conversation_id, messageContent);
+            if (messageType && messageType != 'text') {
+                console.log('📺 🧐 Datos multipedia recibidos:', data);
+                await sendMediaMessage(group.cw_conversation_id, media_url);
+            }else{
+                // Enviar a Chatwoot
+                const messageContent = `**${user.name}**\n\n${content}`;
+                await sendMessage(group.cw_conversation_id, messageContent);
+            }
+            
 
             // No hacemos nada más, esperamos al webhook
         } catch (error) {

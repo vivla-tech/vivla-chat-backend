@@ -165,6 +165,7 @@ function getMessageParts(content, defaultUserName) {
 function cleanBotMessage(content) {
     return content.replace('🤖', '').trim();
 }
+
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
   }
@@ -182,7 +183,7 @@ const cleanTicketMessage = (message) => {
 // Webhook para eventos de Chatwoot
 export const chatwootWebhook = async (req, res) => {
     try {
-        const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox } = req.body;
+        const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox, attachments } = req.body;
 
         // Solo mostrar detalles completos para message_created
         if (event === 'message_created' && !isPrivate) {
@@ -214,9 +215,10 @@ export const chatwootWebhook = async (req, res) => {
                     id: inbox?.id,
                     name: inbox?.name,
                     channel_type: inbox?.channel_type
-                }
+                },
+                attachments: attachments
             });
-            if (message_type === 'incoming') {
+            if (message_type === 'incoming') { // MENSAJES DE USUARIOS
                 const ownerUser = await User.findOne({ where: { email: sender.email } });
                 if (!ownerUser) {
                     return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -229,28 +231,30 @@ export const chatwootWebhook = async (req, res) => {
                 const senderUser = await findUserInGroupByContent(group, ownerUser, content);
                 const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
 
-                // Crear un nuevo mensaje en la tabla de Messages
-                const newMessage = await Message.create({
-                    group_id: group.group_id,
-                    sender_id: senderUser.id,
-                    sender_name: senderName,
-                    message_type: 'text',
-                    direction: 'incoming',
-                    content: messageContent
-                });
-
-                // Emitir el mensaje por WebSocket a todos los usuarios del grupo
-                emitToGroup(group.group_id, 'chat_message', {
-                    groupId: group.group_id,
-                    userId: senderUser.id,
-                    message: messageContent,
-                    sender_name: senderName,
-                    timestamp: newMessage.created_at
-                });
-
+                if(attachments && attachments.length > 0){
+                    for(const attachment of attachments){
+                        if(attachment.data_url){
+                            // Limpiar y corregir el formato de data_url
+                            const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
+                            console.log(`📎 Procesando attachment con URL limpia: ${cleanDataUrl}`);
+                            const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
+                            console.log(`📎 Procesando attachment con URL Thumbnail limpia: ${cleanThumbUrl}`);
+                            
+                            // Usar la URL limpia para el mensaje de media
+                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment, cleanDataUrl, cleanThumbUrl);
+                        } else {
+                            // Si no hay data_url, usar el content como fallback
+                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment, messageContent);
+                        }
+                    }
+                }else{
+                    // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
+                    await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
+                }
+                
                 console.log('Nuevo mensaje creado y emitido.');
 
-            } else if (message_type === 'outgoing') {
+            } else if (message_type === 'outgoing') { // MENSAJES DE AGENTES (VIVLA)
                 const user = await User.findOne({ where: { firebase_uid: '0000' } });
                 if (!user) {
                     return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
@@ -262,32 +266,27 @@ export const chatwootWebhook = async (req, res) => {
 
                 let isBotMessage = false;
                 let agentName = 'VIVLA';
-                if(content.includes('🤖')){
+                if(content && content.includes('🤖')){
                     isBotMessage = true;
                     agentName = 'VIVLA - 🤖';
                 }else{
                     agentName = `VIVLA - ${capitalizeFirstLetter(sender.name)}`;
                 }
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
-                
-                // Crear un nuevo mensaje en la tabla de Messages
-                const newMessage = await Message.create({
-                    group_id: group.group_id,
-                    sender_id: user.id,
-                    sender_name: agentName,
-                    message_type: 'text',
-                    direction: 'outgoing',
-                    content: cleanContent
-                });
 
-                // Emitir el mensaje por WebSocket a todos los usuarios del grupo
-                emitToGroup(group.group_id, 'chat_message', {
-                    groupId: group.group_id,
-                    userId: user.id,
-                    message: cleanContent,
-                    sender_name: 'VIVLA',
-                    timestamp: newMessage.created_at
-                });
+                if(attachments && attachments.length > 0){
+                    for(const attachment of attachments){
+                        if(attachment.data_url){
+                            const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
+                            const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
+                            await storeAndEmitMediaMessage(group.group_id, user.id, agentName, 'outgoing', attachment, cleanDataUrl, cleanThumbUrl);
+                        }
+                    }
+                }else{
+                    // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
+                    await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
+                }
+                
 
                 console.log('Nuevo mensaje VIVLA creado y emitido.');
             }
@@ -342,6 +341,109 @@ export const chatwootWebhook = async (req, res) => {
     }
 };
 
+async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, content) {
+    // Crear un nuevo mensaje en la tabla de Messages
+    const newMessage = await Message.create({
+        group_id: group_id,
+        sender_id: sender_id,
+        sender_name: sender_name,
+        message_type: 'text',
+        direction: direction,
+        content: content
+    });
+
+    // Emitir el mensaje por WebSocket a todos los usuarios del grupo
+    emitToGroup(group_id, 'chat_message', {
+        groupId: group_id,
+        userId: sender_id,
+        message: content,
+        sender_name: sender_name,
+        message_type: 'text',
+        timestamp: newMessage.created_at
+    });
+}
+
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, attachment, media_url, thumb_url) {
+    
+    const file_size = obtainFileSizeFromAttachment(attachment);
+    const file_name = obtainFileNameFromAttachment(attachment);
+    const file_type = obtainFileTypeFromAttachment(attachment);
+    const message_type = attachment.file_type;
+
+    const newMessage = await Message.create({
+        group_id: group_id,
+        sender_id: sender_id,
+        sender_name: sender_name,
+        message_type: message_type,
+        direction: direction,
+        content: '',
+        media_url: media_url,
+        thumb_url: thumb_url,
+        file_size: file_size,
+        file_name: file_name,
+        file_type: file_type,
+    });
+
+    emitToGroup(group_id, 'chat_message', {
+        groupId: group_id,
+        userId: sender_id,
+        // message: media_url,
+        sender_name: sender_name,
+        media_url: media_url,
+        thumb_url: thumb_url,
+        message_type: message_type,
+        file_size: file_size,
+        file_name: file_name,
+        file_type: file_type,
+        timestamp: newMessage.created_at
+    });
+}
+
+function obtainFileSizeFromAttachment(attachment) {
+    try {
+        const fileSize = attachment.file_size;
+        return fileSize;
+    } catch (error) {
+        console.error('Error al obtener el tamaño del archivo:', error);
+        console.log('Attachment:', attachment);
+        return '';
+    }
+}
+
+function obtainFileNameFromAttachment(attachment) {
+    try {
+        const fileName = attachment.data_url.split('/').pop();
+        return fileName;
+    } catch (error) {
+        console.error('Error al obtener el nombre del archivo:', error);
+        console.log('Attachment:', attachment);
+        return '';
+    }
+}
+
+function obtainFileTypeFromAttachment(attachment) {
+    try { 
+        const fileExtension = attachment.data_url.split('.').pop();
+        if(fileExtension === 'pdf') {
+            return 'application/pdf';
+        }else if(fileExtension === 'jpg' || fileExtension === 'jpeg' || fileExtension === 'png' || fileExtension === 'gif' || fileExtension === 'bmp' || fileExtension === 'tiff' || fileExtension === 'ico' || fileExtension === 'webp') {
+            return 'image/jpeg';
+        }else if(fileExtension === 'mp4' || fileExtension === 'mov' || fileExtension === 'avi' || fileExtension === 'wmv' || fileExtension === 'flv' || fileExtension === 'mkv') {
+            return 'video/mp4';
+        }else if(fileExtension === 'mp3' || fileExtension === 'wav' || fileExtension === 'ogg' || fileExtension === 'm4a' || fileExtension === 'aac') {
+            return 'audio/mpeg';
+        }else if(fileExtension === 'txt' || fileExtension === 'csv' || fileExtension === 'tsv' || fileExtension === 'json' || fileExtension === 'xml' || fileExtension === 'html' || fileExtension === 'css' || fileExtension === 'js') {
+            return 'text/plain';
+        }else{
+            return 'application/octet-stream';
+        }
+    } catch (error) {
+        console.error('Error al obtener el tipo de archivo:', error);
+        console.log('Attachment:', attachment);
+        return '';
+    }
+}
+
 async function sendInternalNote(conversation_id, content) {
     if (!conversation_id || !content) {
         throw new Error('Faltan datos requeridos: conversation_id y content son necesarios');
@@ -355,7 +457,7 @@ async function sendInternalNote(conversation_id, content) {
  * @param {string} content - Contenido del mensaje
  * @returns {Promise<Object>} Respuesta de Chatwoot
  */
-async function sendInternalMessage(conversation_id, content) {
+async function sendMessageWithAdminAPI(conversation_id, content) {
     if (!conversation_id || !content) {
         throw new Error('Faltan datos requeridos: conversation_id y content son necesarios');
     }
@@ -370,7 +472,7 @@ async function sendInternalMessage(conversation_id, content) {
  * @param {string} content - Contenido del mensaje
  * @returns {Promise<Object>} Respuesta de Chatwoot
  */
-async function sendPublicMessage(client_id, conversation_id, content) {
+async function sendMessageWithClientAPI(client_id, conversation_id, content) {
     if (!client_id || !conversation_id || !content) {
         throw new Error('Faltan datos requeridos: client_id, conversation_id y content son necesarios');
     }
@@ -408,10 +510,10 @@ export const sendMessage = async (req, res) => {
         let response;
         if (client_id) {
             // Si viene client_id, usar la API pública
-            response = await sendPublicMessage(client_id, conversation_id, messageContent);
+            response = await sendMessageWithClientAPI(client_id, conversation_id, messageContent);
         } else {
             // Si no viene client_id, usar la API interna
-            response = await sendInternalMessage(conversation_id, messageContent);
+            response = await sendMessageWithAdminAPI(conversation_id, messageContent);
         }
 
         return res.status(200).json({
@@ -429,3 +531,45 @@ export const sendMessage = async (req, res) => {
         });
     }
 };
+
+/**
+ * Limpia y corrige el formato de data_url de Chatwoot
+ * Convierte URLs mal formateadas como "http://https/..." a la URL base de Chatwoot
+ * @param {string} dataUrl - La URL mal formateada
+ * @returns {string} - La URL corregida
+ */
+function cleanChatwootDataUrl(dataUrl) {
+    if (!dataUrl) return dataUrl;
+    
+    console.log(`🔧 Limpiando data_url mal formateado: ${dataUrl}`);
+    
+    // Si la URL comienza con "http://https/", la corregimos
+    if (dataUrl.startsWith('http://https/')) {
+        // Extraemos la parte después de "http://https/"
+        const pathPart = dataUrl.replace('http://https/', '');
+        
+        // Obtenemos la base URL de Chatwoot del .env y removemos "api/v1" si está presente
+        let baseUrl = process.env.CHATWOOT_BASE_URL || 'https://chatwoot-chatwoot.nx8jix.easypanel.host';
+        
+        // Removemos "api/v1" del final si está presente
+        if (baseUrl.endsWith('/api/v1')) {
+            baseUrl = baseUrl.replace('/api/v1', '');
+        } else if (baseUrl.endsWith('api/v1')) {
+            baseUrl = baseUrl.replace('api/v1', '');
+        }
+        
+        // Aseguramos que la base URL termine con /
+        if (!baseUrl.endsWith('/')) {
+            baseUrl += '/';
+        }
+        
+        // Construimos la URL correcta
+        const cleanUrl = `${baseUrl}${pathPart}`;
+        
+        console.log(`✅ URL corregida: ${cleanUrl}`);
+        return cleanUrl;
+    }
+    
+    // Si ya tiene el formato correcto, la devolvemos tal como está
+    return dataUrl;
+}
