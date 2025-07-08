@@ -11,6 +11,7 @@ import messageRoutes from './routes/messageRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import { websocketService } from './services/websocketService.js';
 import zendeskRoutes from './routes/zendeskRoutes.js';
+import diffusionRoutes from './routes/diffusionRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -30,6 +31,7 @@ app.use('/api/invitations', invitationRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/zendesk', zendeskRoutes);
+app.use('/api/diffusion', diffusionRoutes);
 
 // Configuración de la aplicación
 const config = {
