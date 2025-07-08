@@ -1,5 +1,6 @@
 import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient } from '../services/chatwootService.js';
 import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
+import { getUserDiffusionGroups } from '../services/diffusionService.js';
 
 /**
  * Crea o actualiza un usuario con los datos proporcionados
@@ -195,6 +196,9 @@ export const getChat = async (req, res) => {
         // Añadir usuario al grupo
         await addUserToGroup(group, user_id, !!invitedGuest);
 
+        //Obtener la lista de deals del usuario
+        let diffusion_groups = await getUserDiffusionGroups(ownerUser.email, user_id);
+
         // Devolver estructura del chat
         const chat = {
             user_id: user_id,
@@ -212,7 +216,8 @@ export const getChat = async (req, res) => {
                 id: group.group_id,
                 name: group.name,
                 cw_conversation_id: group.cw_conversation_id
-            }
+            },  
+            diffusion_groups: diffusion_groups
         };
 
         return res.json(chat);
@@ -221,3 +226,4 @@ export const getChat = async (req, res) => {
         return res.status(500).json({ error: 'Error al obtener el chat' + error.message });
     }
 }; 
+

@@ -4,6 +4,9 @@ import Group from './Group.js';
 import Message from './Message.js';
 import GroupMember from './GroupMember.js';
 import InvitedGuest from './InvitedGuest.js';
+import DiffusionGroup from './DiffusionGroup.js';
+import DiffusionGroupMember from './DiffusionGroupMember.js';
+import DiffusionMessage from './DiffusionMessage.js';
 
 // Aquí definiremos las relaciones entre modelos cuando los creemos
 // Por ejemplo:
@@ -87,11 +90,54 @@ InvitedGuest.belongsTo(Group, {
     as: 'group'
 });
 
+// Relaciones de DiffusionGroup
+DiffusionGroup.hasMany(DiffusionGroupMember, {
+    foreignKey: 'diffusion_group_id',
+    sourceKey: 'id',
+    as: 'members'
+});
+
+DiffusionGroup.hasMany(DiffusionMessage, {
+    foreignKey: 'diffusion_group_id',
+    sourceKey: 'id',
+    as: 'messages'
+});
+
+// Relaciones de DiffusionGroupMember
+DiffusionGroupMember.belongsTo(DiffusionGroup, {
+    foreignKey: 'diffusion_group_id',
+    targetKey: 'id',
+    as: 'diffusionGroup'
+});
+
+DiffusionGroupMember.belongsTo(User, {
+    foreignKey: 'user_id',
+    targetKey: 'id',
+    as: 'user'
+});
+
+// Relaciones de DiffusionMessage
+DiffusionMessage.belongsTo(DiffusionGroup, {
+    foreignKey: 'diffusion_group_id',
+    targetKey: 'id',
+    as: 'diffusionGroup'
+});
+
+// Relaciones adicionales de User para difusión
+User.hasMany(DiffusionGroupMember, {
+    foreignKey: 'user_id',
+    sourceKey: 'id',
+    as: 'diffusionGroupMemberships'
+});
+
 export {
     sequelize,
     User,
     Group,
     Message,
     GroupMember,
-    InvitedGuest
+    InvitedGuest,
+    DiffusionGroup,
+    DiffusionGroupMember,
+    DiffusionMessage
 }; 
