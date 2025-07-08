@@ -108,7 +108,7 @@ function handleConnection(socket) {
     // Cuando un usuario quiere unirse a un grupo
     socket.on('join_group', async (data, callback) => {
         try {
-            const { groupId } = data;
+            const { groupId, isDiffusionGroup = false } = data;
             if (!groupId) {
                 console.error('Error: groupId no proporcionado en join_group');
                 callback({ success: false, error: 'groupId no proporcionado' });
@@ -116,7 +116,7 @@ function handleConnection(socket) {
             }
 
             const groupIdStr = String(groupId);
-            const roomName = `group_${groupIdStr}`;
+            const roomName = `group_${groupIdStr}${isDiffusionGroup ? '_diffusion' : ''}`;
 
             console.log('Joining group:', {
                 userId: Array.from(connectedUsers.entries()).find(([_, sid]) => sid === socket.id)?.[0],
