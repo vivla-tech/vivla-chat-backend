@@ -3,16 +3,18 @@ import { DiffusionGroup, DiffusionGroupMember, DiffusionMessage, User } from '..
 /**
  * Crear un nuevo grupo de difusión
  * @param {string} name - Nombre del grupo de difusión
+ * @param {string} externalHid - ID externo de referencia a una casa (opcional)
  * @returns {Promise<Object>} - El grupo de difusión creado
  */
-export const createDiffusionGroup = async (name) => {
+export const createDiffusionGroup = async (name, externalHid = null) => {
     try {
         if (!name || name.trim() === '') {
             throw new Error('El nombre del grupo es requerido');
         }
 
         const diffusionGroup = await DiffusionGroup.create({
-            name: name.trim()
+            name: name.trim(),
+            external_hid: externalHid ? externalHid.trim() : null
         });
 
         return diffusionGroup;

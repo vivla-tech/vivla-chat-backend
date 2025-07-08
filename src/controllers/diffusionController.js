@@ -13,14 +13,14 @@ import {
  */
 export const createGroup = async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, external_hid } = req.body;
 
         // Validar datos requeridos
         if (!name) {
             return res.status(400).json({ error: 'El nombre del grupo es requerido' });
         }
 
-        const diffusionGroup = await createDiffusionGroup(name);
+        const diffusionGroup = await createDiffusionGroup(name, external_hid);
         return res.status(201).json(diffusionGroup);
     } catch (error) {
         console.error('Error en createGroup:', error);

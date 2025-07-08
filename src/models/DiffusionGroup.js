@@ -11,6 +11,11 @@ const DiffusionGroup = sequelize.define('DiffusionGroup', {
         type: DataTypes.STRING,
         allowNull: false
     },
+    external_hid: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'ID externo de referencia a una casa'
+    },
     created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
