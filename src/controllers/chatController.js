@@ -1,5 +1,6 @@
 import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient } from '../services/chatwootService.js';
 import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
+import { getUserDeals } from '../services/dealService.js';
 
 /**
  * Crea o actualiza un usuario con los datos proporcionados
@@ -195,6 +196,9 @@ export const getChat = async (req, res) => {
         // Añadir usuario al grupo
         await addUserToGroup(group, user_id, !!invitedGuest);
 
+        //Obtener la lista de deals del usuario
+        let diffusion_groups = await getUserDiffusionGroups(ownerUser.email);
+
         // Devolver estructura del chat
         const chat = {
             user_id: user_id,
@@ -212,7 +216,8 @@ export const getChat = async (req, res) => {
                 id: group.group_id,
                 name: group.name,
                 cw_conversation_id: group.cw_conversation_id
-            }
+            },  
+            diffusion_groups: diffusion_groups
         };
 
         return res.json(chat);
@@ -221,3 +226,20 @@ export const getChat = async (req, res) => {
         return res.status(500).json({ error: 'Error al obtener el chat' + error.message });
     }
 }; 
+
+/**
+ * Obtiene las listas de difusión del usuario
+ * @param {string} ownerEmail - Email del usuario
+ * @param {string} userId - ID del usuario
+ * @returns {Promise<Array>} Lista de listas de difusión
+ */
+async function getUserDiffusionGroups(ownerEmail, userId) {
+    let diffusion_groups = [];
+    try {
+        const deals = await getUserDeals(ownerEmail);
+        diffusion_groups = deals.deals;
+    } catch (error) {
+        console.error('Error al obtener los deals:', error);
+    }
+    return diffusion_groups;
+}
