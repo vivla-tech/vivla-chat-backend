@@ -1,6 +1,6 @@
 import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient } from '../services/chatwootService.js';
-import { User, Group, InvitedGuest, GroupMember, DiffusionGroup, DiffusionGroupMember } from '../models/index.js';
-import { getUserDeals } from '../services/dealService.js';
+import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
+import { getUserDiffusionGroups } from '../services/diffusionService.js';
 
 /**
  * Crea o actualiza un usuario con los datos proporcionados
@@ -227,73 +227,3 @@ export const getChat = async (req, res) => {
     }
 }; 
 
-/**
- * Obtiene las listas de difusión del usuario y añade al usuario como miembro
- * @param {string} ownerEmail - Email del usuario
- * @param {string} userId - ID del usuario
- * @returns {Promise<Array>} Lista de grupos de difusión encontrados
- */
-async function getUserDiffusionGroups(ownerEmail, userId) {
-    let diffusion_groups = [];
-    
-    try {
-        // Obtener los deals del usuario
-        const deals = await getUserDeals(ownerEmail);
-        
-        if (!deals.success || !deals.deals || deals.deals.length === 0) {
-            console.log(`No se encontraron deals para el usuario: ${ownerEmail}`);
-            return diffusion_groups;
-        }
-
-        // Procesar cada deal
-        for (const deal of deals.deals) {
-            try {
-                // 1. Comprobar si existe un diffusion_group con el hid del deal
-                const diffusionGroup = await DiffusionGroup.findOne({
-                    where: { external_hid: deal.hid }
-                });
-
-                // 2. Si no existe, continuar al siguiente deal
-                if (!diffusionGroup) {
-                    console.log(`No se encontró diffusion_group para el hid: ${deal.hid}`);
-                    continue;
-                }
-
-                // 3. Si existe, añadir al usuario como miembro si no lo es ya
-                const existingMember = await DiffusionGroupMember.findOne({
-                    where: {
-                        diffusion_group_id: diffusionGroup.id,
-                        user_id: userId
-                    }
-                });
-
-                if (!existingMember) {
-                    await DiffusionGroupMember.create({
-                        diffusion_group_id: diffusionGroup.id,
-                        user_id: userId
-                    });
-                    console.log(`Usuario ${userId} añadido como miembro del diffusion_group ${diffusionGroup.id}`);
-                } else {
-                    console.log(`Usuario ${userId} ya es miembro del diffusion_group ${diffusionGroup.id}`);
-                }
-
-                // 4. Añadir el grupo de difusión al array de resultados
-                diffusion_groups.push({
-                    id: diffusionGroup.id,
-                    name: diffusionGroup.name,
-                    external_hid: diffusionGroup.external_hid
-                });
-
-            } catch (dealError) {
-                console.error(`Error procesando deal ${deal.id}:`, dealError);
-                // Continuar con el siguiente deal en caso de error
-                continue;
-            }
-        }
-
-    } catch (error) {
-        console.error('Error al obtener los deals:', error);
-    }
-
-    return diffusion_groups;
-}
