@@ -112,8 +112,12 @@ export const createTextMessage = async (diffusionGroupId, content) => {
  * @param {string} thumbUrl - URL de la imagen thumbnail (opcional)
  * @returns {Promise<Object>} - El mensaje creado
  */
-export const createMediaMessage = async (diffusionGroupId, content, mediaUrl, fileName, fileSize, fileType, thumbUrl = null) => {
+export const createMediaMessage = async (diffusionGroupId, message_type, content, mediaUrl, fileName, fileSize, fileType, thumbUrl = null) => {
     try {
+        if (!message_type) {
+            throw new Error('El tipo de mensaje es requerido');
+        }
+
         if (!content || content.trim() === '') {
             throw new Error('El contenido del mensaje es requerido');
         }
@@ -144,7 +148,7 @@ export const createMediaMessage = async (diffusionGroupId, content, mediaUrl, fi
         const message = await DiffusionMessage.create({
             diffusion_group_id: diffusionGroupId,
             content: content.trim(),
-            message_type: 'media',
+            message_type: message_type,
             media_url: mediaUrl,
             file_name: fileName,
             file_size: fileSize,

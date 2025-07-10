@@ -137,7 +137,7 @@ export const createMessage = async (req, res) => {
                     error: 'Para mensajes multimedia se requieren: media_url, file_name, file_size y file_type' 
                 });
             }
-            message = await createMediaMessage(groupIdInt, content, media_url, file_name, file_size, file_type, thumb_url);
+            message = await createMediaMessage(groupIdInt, message_type, content, media_url, file_name, file_size, file_type, thumb_url);
         }
 
         emitToGroup(groupIdInt, 'diffusion_message', message, true);
