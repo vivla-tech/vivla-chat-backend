@@ -1,7 +1,8 @@
 import {
     createDiffusionGroup,
     addMemberToDiffusionGroup,
-    createDiffusionMessage,
+    createTextMessage,
+    createMediaMessage,
     getAllDiffusionGroups,
     getDiffusionGroupById,
     getDiffusionMessages
@@ -102,13 +103,13 @@ export const addMember = async (req, res) => {
 };
 
 /**
- * Crear un mensaje de texto en un grupo de difusión
+ * Crear un mensaje en un grupo de difusión (texto o multimedia)
  * POST /api/diffusion/groups/:groupId/messages
  */
 export const createMessage = async (req, res) => {
     try {
         const { groupId } = req.params;
-        const { content } = req.body;
+        const { content, message_type, media_url, file_name, file_size, file_type, thumb_url } = req.body;
 
         const groupIdInt = parseInt(groupId);
 
@@ -117,11 +118,28 @@ export const createMessage = async (req, res) => {
         }
 
         // Validar datos requeridos
-        if (!content) {
-            return res.status(400).json({ error: 'El contenido del mensaje es requerido' });
+        if (!message_type) {
+            return res.status(400).json({ error: 'El tipo de mensaje es requerido' });
+        }
+        if (message_type === 'text' && !content) {
+            return res.status(400).json({ error: 'El contenido del mensaje de texto es requerido' });
         }
 
-        const message = await createDiffusionMessage(groupIdInt, content);
+        let message;
+
+        // Detectar tipo de mensaje y llamar a la función correspondiente
+        if (message_type === 'text' || !message_type) {
+            message = await createTextMessage(groupIdInt, content);
+        } else {
+            // Validar datos multimedia requeridos
+            if (!media_url || !file_name || !file_size || !file_type) {
+                return res.status(400).json({ 
+                    error: 'Para mensajes multimedia se requieren: media_url, file_name, file_size y file_type' 
+                });
+            }
+            message = await createMediaMessage(groupIdInt, content, media_url, file_name, file_size, file_type, thumb_url);
+        }
+
         emitToGroup(groupIdInt, 'diffusion_message', message, true);
         return res.status(201).json(message);
     } catch (error) {

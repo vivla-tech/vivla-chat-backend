@@ -75,7 +75,7 @@ export const addMemberToDiffusionGroup = async (diffusionGroupId, userId) => {
  * @param {string} content - Contenido del mensaje
  * @returns {Promise<Object>} - El mensaje creado
  */
-export const createDiffusionMessage = async (diffusionGroupId, content) => {
+export const createTextMessage = async (diffusionGroupId, content) => {
     try {
         if (!content || content.trim() === '') {
             throw new Error('El contenido del mensaje es requerido');
@@ -87,7 +87,7 @@ export const createDiffusionMessage = async (diffusionGroupId, content) => {
             throw new Error('Grupo de difusión no encontrado');
         }
 
-        // Crear el mensaje
+        // Crear el mensaje de texto
         const message = await DiffusionMessage.create({
             diffusion_group_id: diffusionGroupId,
             content: content.trim(),
@@ -96,10 +96,70 @@ export const createDiffusionMessage = async (diffusionGroupId, content) => {
 
         return message;
     } catch (error) {
-        console.error('Error al crear mensaje de difusión:', error);
+        console.error('Error al crear mensaje de texto:', error);
         throw error;
     }
 };
+
+/**
+ * Crear un mensaje multimedia en un grupo de difusión
+ * @param {number} diffusionGroupId - ID del grupo de difusión
+ * @param {string} content - Contenido del mensaje
+ * @param {string} mediaUrl - URL del archivo multimedia
+ * @param {string} fileName - Nombre del archivo
+ * @param {number} fileSize - Tamaño del archivo en bytes
+ * @param {string} fileType - Tipo MIME del archivo
+ * @param {string} thumbUrl - URL de la imagen thumbnail (opcional)
+ * @returns {Promise<Object>} - El mensaje creado
+ */
+export const createMediaMessage = async (diffusionGroupId, content, mediaUrl, fileName, fileSize, fileType, thumbUrl = null) => {
+    try {
+        if (!content || content.trim() === '') {
+            throw new Error('El contenido del mensaje es requerido');
+        }
+
+        if (!mediaUrl) {
+            throw new Error('La URL del archivo multimedia es requerida');
+        }
+
+        if (!fileName) {
+            throw new Error('El nombre del archivo es requerido');
+        }
+
+        if (!fileSize || fileSize <= 0) {
+            throw new Error('El tamaño del archivo es requerido y debe ser mayor a 0');
+        }
+
+        if (!fileType) {
+            throw new Error('El tipo de archivo es requerido');
+        }
+
+        // Verificar que el grupo de difusión existe
+        const diffusionGroup = await DiffusionGroup.findByPk(diffusionGroupId);
+        if (!diffusionGroup) {
+            throw new Error('Grupo de difusión no encontrado');
+        }
+
+        // Crear el mensaje multimedia
+        const message = await DiffusionMessage.create({
+            diffusion_group_id: diffusionGroupId,
+            content: content.trim(),
+            message_type: 'media',
+            media_url: mediaUrl,
+            file_name: fileName,
+            file_size: fileSize,
+            file_type: fileType,
+            thumb_url: thumbUrl
+        });
+
+        return message;
+    } catch (error) {
+        console.error('Error al crear mensaje multimedia:', error);
+        throw error;
+    }
+};
+
+
 
 /**
  * Obtener todos los grupos de difusión
