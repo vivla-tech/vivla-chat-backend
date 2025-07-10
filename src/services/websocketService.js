@@ -167,10 +167,11 @@ function handleConnection(socket) {
  * @param {string|number} groupId - ID del grupo
  * @param {string} event - Nombre del evento
  * @param {Object} data - Datos a enviar
+ * @param {boolean} isDiffusionGroup - Indica si el grupo es de difusión
  */
-export function emitToGroup(groupId, event, data) {
+export function emitToGroup(groupId, event, data, isDiffusionGroup = false) {
     if (io) {
-        const roomName = `group_${groupId}`;
+        const roomName = `group_${groupId}${isDiffusionGroup ? '_diffusion' : ''}`;
         console.log('Emitting to group:', {
             roomName,
             event,
