@@ -6,6 +6,7 @@ import {
     getDiffusionGroupById,
     getDiffusionMessages
 } from '../services/diffusionService.js';
+import { emitToGroup } from '../services/websocketService.js';
 
 /**
  * Crear un nuevo grupo de difusión
@@ -121,6 +122,7 @@ export const createMessage = async (req, res) => {
         }
 
         const message = await createDiffusionMessage(groupIdInt, content);
+        emitToGroup(groupIdInt, 'diffusion_message', message, true);
         return res.status(201).json(message);
     } catch (error) {
         console.error('Error en createMessage:', error);
