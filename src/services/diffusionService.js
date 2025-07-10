@@ -117,9 +117,8 @@ export const createMediaMessage = async (diffusionGroupId, message_type, content
         if (!message_type) {
             throw new Error('El tipo de mensaje es requerido');
         }
-
-        if (!content || content.trim() === '') {
-            throw new Error('El contenido del mensaje es requerido');
+        if(!content){
+            content = '';
         }
 
         if (!mediaUrl) {
