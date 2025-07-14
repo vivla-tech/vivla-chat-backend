@@ -281,10 +281,10 @@ export const chatwootWebhook = async (req, res) => {
                         return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
                     }
                 }else{
-                    user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id } });
+                    user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id.toString() } });
                     if (!user) {
                        user = await User.create({
-                        firebase_uid: '0000#'+ sender.id,
+                        firebase_uid: '0000#'+ sender.id.toString(),
                         name: sender.name,
                         email: sender.email,
                         house_name: 'VIVLA',
