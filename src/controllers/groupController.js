@@ -1,5 +1,6 @@
 import { Group, User, InvitedGuest, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
+import { getConversationAssignee, getConversationAssigneeFullProfile } from '../services/chatwootService.js';
 
 export const createGroup = async (req, res) => {
     try {
@@ -191,5 +192,79 @@ export const addUserToGroup = async (req, res) => {
     } catch (error) {
         console.error('Error al añadir usuario al grupo:', error);
         return res.status(500).json({ error: 'Error al añadir usuario al grupo' });
+    }
+};
+
+/**
+ * Obtiene información del agente asignado a un grupo
+ */
+export const getGroupAgent = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { fullProfile = true } = req.query;
+
+        if (!groupId) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'groupId es requerido'
+            });
+        }
+
+        // Paso 1: Buscar el grupo en la base de datos
+        const group = await Group.findByPk(groupId);
+        if (!group) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Grupo no encontrado'
+            });
+        }
+
+        // Paso 2: Verificar que el grupo tiene conversationId
+        if (!group.cw_conversation_id) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'El grupo no tiene una conversación asociada en Chatwoot'
+            });
+        }
+
+        // Paso 3: Obtener información del agente usando el conversationId
+        let agentInfo;
+        
+        if (fullProfile === true) {
+            // Obtener perfil completo del agente
+            agentInfo = await getConversationAssigneeFullProfile(group.cw_conversation_id);
+        } else {
+            // Obtener solo información básica del agente
+            agentInfo = await getConversationAssignee(group.cw_conversation_id);
+        }
+
+        if (!agentInfo) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'No hay agente asignado a esta conversación',
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Información del agente obtenida correctamente',
+            data: {
+                agent: agentInfo,
+                group: {
+                    id: group.group_id,
+                    name: group.name,
+                    conversation_id: group.cw_conversation_id
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo información del agente:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error al obtener información del agente',
+            error: error.message
+        });
     }
 }; 

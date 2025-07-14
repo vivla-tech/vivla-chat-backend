@@ -1,4 +1,4 @@
-import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient, getConversationAssignee, getConversationAssigneeFullProfile } from '../services/chatwootService.js';
+import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient } from '../services/chatwootService.js';
 import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
 import { getUserDiffusionGroups } from '../services/diffusionService.js';
 
@@ -227,77 +227,5 @@ export const getChat = async (req, res) => {
     }
 }; 
 
-/**
- * Obtiene información del agente asignado a una conversación
- */
-export const getConversationAgent = async (req, res) => {
-    try {
-        const { groupId } = req.params;
-        const { fullProfile = true } = req.query;
-
-        if (!groupId) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'groupId es requerido'
-            });
-        }
-
-        // Paso 1: Buscar el grupo en la base de datos
-        const group = await Group.findByPk(groupId);
-        if (!group) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Grupo no encontrado'
-            });
-        }
-
-        // Paso 2: Verificar que el grupo tiene conversationId
-        if (!group.cw_conversation_id) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'El grupo no tiene una conversación asociada en Chatwoot'
-            });
-        }
-
-        // Paso 3: Obtener información del agente usando el conversationId
-        let agentInfo;
-        
-        if (fullProfile === 'true') {
-            // Obtener perfil completo del agente
-            agentInfo = await getConversationAssigneeFullProfile(group.cw_conversation_id);
-        } else {
-            // Obtener solo información básica del agente
-            agentInfo = await getConversationAssignee(group.cw_conversation_id);
-        }
-
-        if (!agentInfo) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'No hay agente asignado a esta conversación',
-                data: null
-            });
-        }
-
-        return res.status(200).json({
-            status: 'success',
-            message: 'Información del agente obtenida correctamente',
-            data: {
-                agent: agentInfo,
-                group: {
-                    id: group.group_id,
-                    name: group.name,
-                    conversation_id: group.cw_conversation_id
-                }
-            }
-        });
-
-    } catch (error) {
-        console.error('Error obteniendo información del agente:', error);
-        return res.status(500).json({
-            status: 'error',
-            message: 'Error al obtener información del agente',
-            error: error.message
-        });
-    }
-}; 
+ 
 
