@@ -478,6 +478,7 @@ async function getConversationAssigneeFullProfile(conversationId) {
             console.warn(`Agente con ID ${assignee.id} no encontrado en la lista de agentes`);
             return assignee; // Devolver solo la información básica si no se encuentra el perfil completo
         }
+        const defaultThumbnail = 'https://cdn.vivla.com/app_images/chat.jpg';
         
         // Combinar información básica con perfil completo
         return {
@@ -487,7 +488,7 @@ async function getConversationAssigneeFullProfile(conversationId) {
             confirmed: fullProfile.confirmed,
             account_id: fullProfile.account_id,
             custom_attributes: fullProfile.custom_attributes,
-            thumbnail: fullProfile.thumbnail || fullProfile.avatar_url
+            thumbnail: fullProfile.thumbnail || fullProfile.avatar_url || defaultThumbnail
         };
     } catch (error) {
         console.error('Error obteniendo perfil completo del agente:', error);
