@@ -184,40 +184,39 @@ const cleanTicketMessage = (message) => {
 export const chatwootWebhook = async (req, res) => {
     try {
         const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox, attachments } = req.body;
-
+        console.log('Chatwoot Message Created Event:', {
+            id,
+            content,
+            message_type,
+            created_at,
+            private: isPrivate,
+            source_id,
+            content_type,
+            content_attributes,
+            sender: {
+                type: sender?.type,
+                id: sender?.id,
+                name: sender?.name,
+                email: sender?.email
+            },
+            account: {
+                id: account?.id,
+                name: account?.name
+            },
+            conversation: {
+                id: conversation?.id,
+                status: conversation?.status,
+                inbox_id: conversation?.inbox_id
+            },
+            inbox: {
+                id: inbox?.id,
+                name: inbox?.name,
+                channel_type: inbox?.channel_type
+            },
+            attachments: attachments
+        });
         // Solo mostrar detalles completos para message_created
         if (event === 'message_created' && !isPrivate) {
-            console.log('Chatwoot Message Created Event:', {
-                id,
-                content,
-                message_type,
-                created_at,
-                private: isPrivate,
-                source_id,
-                content_type,
-                content_attributes,
-                sender: {
-                    type: sender?.type,
-                    id: sender?.id,
-                    name: sender?.name,
-                    email: sender?.email
-                },
-                account: {
-                    id: account?.id,
-                    name: account?.name
-                },
-                conversation: {
-                    id: conversation?.id,
-                    status: conversation?.status,
-                    inbox_id: conversation?.inbox_id
-                },
-                inbox: {
-                    id: inbox?.id,
-                    name: inbox?.name,
-                    channel_type: inbox?.channel_type
-                },
-                attachments: attachments
-            });
             if (message_type === 'incoming') { // MENSAJES DE USUARIOS
                 const ownerUser = await User.findOne({ where: { email: sender.email } });
                 if (!ownerUser) {
