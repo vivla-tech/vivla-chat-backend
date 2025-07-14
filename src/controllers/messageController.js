@@ -39,76 +39,6 @@ export const getGroupMessages = async (req, res) => {
     }
 };
 
-// // Eliminar un mensaje
-// export const deleteMessage = async (req, res) => {
-//     try {
-//         const { messageId } = req.params;
-//         const { firebase_uid } = req.body; // ID del usuario que intenta eliminar
-
-//         const message = await Message.findByPk(messageId, {
-//             include: [
-//                 {
-//                     model: Group,
-//                     as: 'group',
-//                     include: [
-//                         {
-//                             model: User,
-//                             as: 'owner',
-//                             attributes: ['firebase_uid']
-//                         }
-//                     ]
-//                 }
-//             ]
-//         });
-
-//         if (!message) {
-//             return res.status(404).json({ error: 'Mensaje no encontrado' });
-//         }
-
-//         // Verificar permisos (solo el remitente o el dueño del grupo pueden eliminar)
-//         const isOwner = message.group.owner.firebase_uid === firebase_uid;
-//         const isSender = message.sender_firebase_uid === firebase_uid;
-
-//         if (!isOwner && !isSender) {
-//             return res.status(403).json({ error: 'No tienes permiso para eliminar este mensaje' });
-//         }
-
-//         await message.destroy();
-//         return res.json({ message: 'Mensaje eliminado correctamente' });
-//     } catch (error) {
-//         console.error('Error al eliminar mensaje:', error);
-//         return res.status(500).json({ error: 'Error al eliminar el mensaje' });
-//     }
-// };
-
-// Actualizar un mensaje (solo el contenido)
-// export const updateMessage = async (req, res) => {
-//     try {
-//         const { messageId } = req.params;
-//         const { text_content, media_url, firebase_uid } = req.body;
-
-//         const message = await Message.findByPk(messageId);
-//         if (!message) {
-//             return res.status(404).json({ error: 'Mensaje no encontrado' });
-//         }
-
-//         // Solo el remitente puede editar el mensaje
-//         if (message.sender_firebase_uid !== firebase_uid) {
-//             return res.status(403).json({ error: 'No tienes permiso para editar este mensaje' });
-//         }
-
-//         // Actualizar solo los campos permitidos
-//         if (text_content !== undefined) message.text_content = text_content;
-//         if (media_url !== undefined) message.media_url = media_url;
-
-//         await message.save();
-//         return res.json(message);
-//     } catch (error) {
-//         console.error('Error al actualizar mensaje:', error);
-//         return res.status(500).json({ error: 'Error al actualizar el mensaje' });
-//     }
-// };
-
 async function findUserInGroupByContent(group, owner, messageContent) {
     try {
         // Obtener todos los miembros del grupo incluyendo la información del usuario
@@ -180,164 +110,274 @@ const cleanTicketMessage = (message) => {
     return message.replace(mentionRegex, '').trim();
 };
 
-// Webhook para eventos de Chatwoot
+// ===== WEBHOOK EVENT HANDLERS =====
+
+/**
+ * Maneja eventos de mensajes creados (públicos)
+ */
+async function handleMessageCreatedEvent(webhookData) {
+    const { content, message_type, sender, conversation, attachments } = webhookData;
+    
+    if (message_type === 'incoming') {
+        await handleIncomingMessage(sender, conversation, content, attachments);
+    } else if (message_type === 'outgoing') {
+        await handleOutgoingMessage(sender, conversation, content, attachments);
+    }
+}
+
+/**
+ * Maneja eventos de mensajes privados (tickets)
+ */
+async function handlePrivateMessageEvent(webhookData) {
+    const { content, sender, conversation } = webhookData;
+    
+    if (content.toLowerCase().includes('@ticket') || content.toLowerCase().includes('@zendesk')) {
+        await handleTicketCreation(sender, conversation, content);
+    }
+}
+
+// ===== MESSAGE TYPE HANDLERS =====
+
+/**
+ * Procesa mensajes entrantes de usuarios
+ */
+async function handleIncomingMessage(sender, conversation, content, attachments) {
+    const ownerUser = await findUserByEmail(sender.email);
+    const group = await findGroupByConversationId(conversation.id);
+    
+    const senderUser = await findUserInGroupByContent(group, ownerUser, content);
+    const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
+
+    if (attachments && attachments.length > 0) {
+        await processAttachments(group.group_id, senderUser.id, senderName, 'incoming', attachments, messageContent);
+    } else {
+        await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
+    }
+    
+    console.log('Nuevo mensaje creado y emitido.');
+}
+
+/**
+ * Procesa mensajes salientes de agentes VIVLA
+ */
+async function handleOutgoingMessage(sender, conversation, content, attachments) {
+    const group = await findGroupByConversationId(conversation.id);
+    
+    const { isBotMessage, agentName, cleanContent } = processAgentMessage(content, sender);
+    const user = await getAgentUser(isBotMessage, sender);
+    
+    if (attachments && attachments.length > 0) {
+        await processAttachments(group.group_id, user.id, agentName, 'outgoing', attachments);
+    } else {
+        await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
+    }
+    
+    console.log('Nuevo mensaje VIVLA creado y emitido.');
+}
+
+// ===== TICKET HANDLERS =====
+
+/**
+ * Maneja la creación de tickets desde mensajes privados
+ */
+async function handleTicketCreation(sender, conversation, content) {
+    console.log('Chatwoot Private Message Created Event:', { sender, conversation, content });
+    
+    const ticketData = extractTicketData(conversation);
+    if (!isValidTicketData(ticketData)) {
+        await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Faltan datos requeridos para crear el ticket');
+        return { status: 400, error: 'Faltan datos requeridos para crear el ticket' };
+    }
+    
+    const group = await findGroupByConversationId(conversation.id);
+    const groupOwner = await findUserById(group.user_id);
+    
+    const ticket = await createTicketFromMessage(groupOwner, sender, content, ticketData, conversation.id);
+    await sendTicketConfirmation(conversation.id, sender.name, ticket, ticketData);
+    
+    return { status: 200 };
+}
+
+// ===== DATA EXTRACTION HELPERS =====
+
+/**
+ * Extrae datos del webhook de Chatwoot
+ */
+function extractWebhookData(req) {
+    const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox, attachments } = req.body;
+    
+    return {
+        event, id, content, message_type, created_at, isPrivate, source_id, 
+        content_type, content_attributes, sender, account, conversation, inbox, attachments
+    };
+}
+
+/**
+ * Extrae datos de ticket de la conversación
+ */
+function extractTicketData(conversation) {
+    const { custom_attributes } = conversation;
+    const { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin } = custom_attributes;
+    
+    return { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin };
+}
+
+/**
+ * Procesa información del mensaje del agente
+ */
+function processAgentMessage(content, sender) {
+    let isBotMessage = false;
+    let agentName = 'VIVLA';
+    
+    if (content && content.includes('🤖')) {
+        isBotMessage = true;
+        agentName = 'VIVLA - 🤖';
+    } else {
+        agentName = `VIVLA - ${capitalizeFirstLetter(sender.name)}`;
+    }
+    
+    const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
+    
+    return { isBotMessage, agentName, cleanContent };
+}
+
+// ===== DATABASE HELPERS =====
+
+/**
+ * Busca usuario por email
+ */
+async function findUserByEmail(email) {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+        throw new Error('Usuario no encontrado');
+    }
+    return user;
+}
+
+/**
+ * Busca grupo por ID de conversación
+ */
+async function findGroupByConversationId(conversationId) {
+    const group = await Group.findOne({ where: { cw_conversation_id: conversationId.toString() } });
+    if (!group) {
+        throw new Error('Grupo no encontrado');
+    }
+    return group;
+}
+
+/**
+ * Busca usuario por ID
+ */
+async function findUserById(userId) {
+    const user = await User.findOne({ where: { id: userId } });
+    if (!user) {
+        throw new Error('Usuario no encontrado');
+    }
+    return user;
+}
+
+/**
+ * Obtiene o crea usuario agente
+ */
+async function getAgentUser(isBotMessage, sender) {
+    if (isBotMessage) {
+        const user = await User.findOne({ where: { firebase_uid: '0000' } });
+        if (!user) {
+            throw new Error('Usuario VIVLA no encontrado');
+        }
+        return user;
+    } else {
+        return await createAgentUser(sender);
+    }
+}
+
+// ===== VALIDATION HELPERS =====
+
+/**
+ * Valida datos de ticket
+ */
+function isValidTicketData(ticketData) {
+    const { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin } = ticketData;
+    return casa && zendesk_ticket_priority && zendesk_equipo_de_resolucin && 
+           casa !== '--' && zendesk_ticket_priority !== '--' && zendesk_equipo_de_resolucin !== '--';
+}
+
+// ===== PROCESSING HELPERS =====
+
+/**
+ * Procesa attachments de mensajes
+ */
+async function processAttachments(groupId, senderId, senderName, direction, attachments, fallbackContent = '') {
+    for (const attachment of attachments) {
+        if (attachment.data_url) {
+            const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
+            const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
+            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, attachment, cleanDataUrl, cleanThumbUrl);
+        } else if (fallbackContent) {
+            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, attachment, fallbackContent);
+        }
+    }
+}
+
+/**
+ * Crea ticket desde mensaje
+ */
+async function createTicketFromMessage(groupOwner, sender, content, ticketData, conversationId) {
+    const cleanedMessage = cleanTicketMessage(content);
+    const { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin } = ticketData;
+    
+    const ticket = await createTicket(
+        groupOwner.name, 
+        groupOwner.email, 
+        sender.name, 
+        cleanedMessage, 
+        zendesk_ticket_priority, 
+        casa, 
+        zendesk_equipo_de_resolucin, 
+        conversationId, 
+        true
+    );
+    
+    console.log('Ticket creado');
+    return ticket;
+}
+
+/**
+ * Envía confirmación de ticket
+ */
+async function sendTicketConfirmation(conversationId, senderName, ticket, ticketData) {
+    const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${ticket.id}`;
+    const { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin } = ticketData;
+    
+    const ticketMessage = `👋 Hola ${senderName}\n\nTicket creado:\n - 🆔 Id: **${ticket.id}**\n - 📝 Prioridad: **${zendesk_ticket_priority}**\n - 📍 Casa: **${casa}**\n - 🔍 Equipo de resolución: **${zendesk_equipo_de_resolucin}**\n - 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
+    
+    await sendInternalNote(conversationId, ticketMessage);
+    console.log('Nota interna enviada');
+    
+    await resetTicketCustomAttributes(conversationId);
+    console.log('Custom attributes reseteados');
+}
+
+// ===== MAIN WEBHOOK FUNCTION =====
+
+/**
+ * Webhook principal para eventos de Chatwoot
+ */
 export const chatwootWebhook = async (req, res) => {
     try {
-        const { event, id, content, message_type, created_at, private: isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox, attachments } = req.body;
-        // Solo mostrar detalles completos para message_created
+        const webhookData = extractWebhookData(req);
+        const { event, isPrivate, content } = webhookData;
+        
+        // Log detallado solo para message_created
         if (event === 'message_created' && !isPrivate) {
-            console.log('Chatwoot Message Created Event:', {
-                id,
-                content,
-                message_type,
-                created_at,
-                private: isPrivate,
-                source_id,
-                content_type,
-                content_attributes,
-                sender: {
-                    type: sender?.type,
-                    id: sender?.id,
-                    name: sender?.name,
-                    email: sender?.email
-                },
-                account: {
-                    id: account?.id,
-                    name: account?.name
-                },
-                conversation: {
-                    id: conversation?.id,
-                    status: conversation?.status,
-                    inbox_id: conversation?.inbox_id
-                },
-                inbox: {
-                    id: inbox?.id,
-                    name: inbox?.name,
-                    channel_type: inbox?.channel_type
-                },
-                attachments: attachments
-            });
-            if (message_type === 'incoming') { // MENSAJES DE USUARIOS
-                const ownerUser = await User.findOne({ where: { email: sender.email } });
-                if (!ownerUser) {
-                    return res.status(404).json({ error: 'Usuario no encontrado' });
-                }
-                const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
-                if (!group) {
-                    return res.status(404).json({ error: 'Grupo no encontrado' });
-                }
-
-                const senderUser = await findUserInGroupByContent(group, ownerUser, content);
-                const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
-
-                if(attachments && attachments.length > 0){
-                    for(const attachment of attachments){
-                        if(attachment.data_url){
-                            // Limpiar y corregir el formato de data_url
-                            const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
-                            console.log(`📎 Procesando attachment con URL limpia: ${cleanDataUrl}`);
-                            const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
-                            console.log(`📎 Procesando attachment con URL Thumbnail limpia: ${cleanThumbUrl}`);
-                            
-                            // Usar la URL limpia para el mensaje de media
-                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment, cleanDataUrl, cleanThumbUrl);
-                        } else {
-                            // Si no hay data_url, usar el content como fallback
-                            await storeAndEmitMediaMessage(group.group_id, senderUser.id, senderName, 'incoming', attachment, messageContent);
-                        }
-                    }
-                }else{
-                    // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
-                    await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
-                }
-                
-                console.log('Nuevo mensaje creado y emitido.');
-
-            } else if (message_type === 'outgoing') { // MENSAJES DE AGENTES (VIVLA)
-                // const user = await User.findOne({ where: { firebase_uid: '0000' } });
-                // if (!user) {
-                //     return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
-                // }
-                const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
-                if (!group) {
-                    return res.status(404).json({ error: 'Grupo no encontrado' });
-                }
-
-                let isBotMessage = false;
-                let agentName = 'VIVLA';
-                if(content && content.includes('🤖')){
-                    isBotMessage = true;
-                    agentName = 'VIVLA - 🤖';
-                }else{
-                    agentName = `VIVLA - ${capitalizeFirstLetter(sender.name)}`;
-                }
-                const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
-
-                // get agent user
-                let user;
-                if(isBotMessage){
-                    user = await User.findOne({ where: { firebase_uid: '0000' } });
-                    if (!user) {
-                        return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
-                    }
-                }else{
-                    user = await createAgentUser(sender);
-                }
-                if (!user) {
-                    return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
-                }
-                // end get agent user
-
-                if(attachments && attachments.length > 0){
-                    for(const attachment of attachments){
-                        if(attachment.data_url){
-                            const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
-                            const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
-                            await storeAndEmitMediaMessage(group.group_id, user.id, agentName, 'outgoing', attachment, cleanDataUrl, cleanThumbUrl);
-                        }
-                    }
-                }else{
-                    // Crear un nuevo mensaje en la tabla de Messages y emitirlo por WebSocket
-                    await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
-                }
-                
-
-                console.log('Nuevo mensaje VIVLA creado y emitido.');
+            logMessageCreatedEvent(webhookData);
+            await handleMessageCreatedEvent(webhookData);
+        } else if (event === 'message_created' && isPrivate) {
+            const result = await handlePrivateMessageEvent(webhookData);
+            if (result && result.status !== 200) {
+                return res.status(result.status).json({ error: result.error });
             }
-            // console.log('Chatwoot Full Message Created Event:', req.body);
-        } else if (event === 'message_created' && isPrivate && (content.toLowerCase().includes('@ticket') || content.toLowerCase().includes('@zendesk'))) {
-            console.log('Chatwoot Private Message Created Event:', req.body);
-            const { custom_attributes } = req.body.conversation;
-            const { casa, zendesk_ticket_priority, zendesk_equipo_de_resolucin } = custom_attributes;
-
-            if((!casa || !zendesk_ticket_priority || !zendesk_equipo_de_resolucin) || (casa === '--' || zendesk_ticket_priority === '--' || zendesk_equipo_de_resolucin === '--')) {
-                await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Faltan datos requeridos para crear el ticket');
-                return res.status(400).json({ error: 'Faltan datos requeridos para crear el ticket' });
-            }
-            const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
-            if(!group) {    
-                await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Grupo no encontrado');
-                return res.status(404).json({ error: 'Grupo no encontrado' });
-            }
-            const groupOwner = await User.findOne({ where: { id: group.user_id } });
-            if(!groupOwner) {
-                await sendInternalNote(conversation.id, 'ERROR CREANDO TICKET: Dueño del grupo no encontrado');
-                return res.status(404).json({ error: 'Dueño del grupo no encontrado' });
-            }
-
-            const cleanedMessage = cleanTicketMessage(content);
-            const newTicket = await createTicket(groupOwner.name, groupOwner.email, sender.name, cleanedMessage, zendesk_ticket_priority, casa, zendesk_equipo_de_resolucin, conversation.id, true);
-            console.log('Ticket creado');
-            const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${newTicket.id}`;
-            const ticketMessage = `👋 Hola ${sender.name}\n\nTicket creado:\n - 🆔 Id: **${newTicket.id}**\n - 📝 Prioridad: **${zendesk_ticket_priority}**\n - 📍 Casa: **${casa}**\n - 🔍 Equipo de resolución: **${zendesk_equipo_de_resolucin}**\n - 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
-            await sendInternalNote(conversation.id, ticketMessage);
-            console.log('Nota interna enviada');
-            await resetTicketCustomAttributes(conversation.id);
-            console.log('Custom attributes reseteados');
-            // TODO: usar IA para: formatear mensaje, obtener la casa y el destino y la prioridad
-        }
-        else {
-            // Para otros eventos, solo mostrar el tipo
+        } else {
             console.log('Chatwoot Event:', { event });
         }
 
@@ -354,6 +394,29 @@ export const chatwootWebhook = async (req, res) => {
         });
     }
 };
+
+/**
+ * Log detallado para eventos de mensajes creados
+ */
+function logMessageCreatedEvent(webhookData) {
+    const { id, content, message_type, created_at, isPrivate, source_id, content_type, content_attributes, sender, account, conversation, inbox, attachments } = webhookData;
+    
+    console.log('Chatwoot Message Created Event:', {
+        id, content, message_type, created_at, private: isPrivate, source_id, 
+        content_type, content_attributes,
+        sender: {
+            type: sender?.type, id: sender?.id, name: sender?.name, email: sender?.email
+        },
+        account: { id: account?.id, name: account?.name },
+        conversation: {
+            id: conversation?.id, status: conversation?.status, inbox_id: conversation?.inbox_id
+        },
+        inbox: {
+            id: inbox?.id, name: inbox?.name, channel_type: inbox?.channel_type
+        },
+        attachments
+    });
+}
 
 async function createAgentUser(sender) {
     let user;
