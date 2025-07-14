@@ -276,20 +276,20 @@ export const chatwootWebhook = async (req, res) => {
                 // get agent user
                 let user;
                 if(isBotMessage){
-                    user = await User.findOne({ where: { email: 'cx@vivla.es', firebase_uid: '0000' } });
+                    user = await User.findOne({ where: { firebase_uid: '0000' } });
                     if (!user) {
                         return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
                     }
                 }else{
-                    user = await User.findOne({ where: { email: sender.email, firebase_uid: '0000' } });
+                    user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id } });
                     if (!user) {
                        user = await User.create({
-                        firebase_uid: '0000',
+                        firebase_uid: '0000#'+ sender.id,
                         name: sender.name,
                         email: sender.email,
                         house_name: 'VIVLA',
                         cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
-                        cw_contact_id: 0
+                        cw_contact_id: sender.id
                        });
                     }
                 }
