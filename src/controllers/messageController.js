@@ -369,8 +369,12 @@ export const chatwootWebhook = async (req, res) => {
 async function createAgentUser(sender) {
     let user;
     try{
+        console.log('🔍 Buscando usuario con email:', sender.email, 'y cw_contact_id:', sender.id.toString());
         user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id.toString() } });
+        console.log('🔍 Resultado de búsqueda:', user ? 'encontrado' : 'no encontrado');
+        
         if (!user) {
+            console.log('➕ Creando nuevo usuario agente...');
             user = await User.create({
                 firebase_uid: '0000#'+ sender.id.toString(),
                 name: sender.name,
@@ -379,14 +383,21 @@ async function createAgentUser(sender) {
                 cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
                 cw_contact_id: sender.id
             });
+            console.log('✅ Usuario creado exitosamente');
         }
+        console.log(' Retornando usuario desde try');
         return user;
     }catch(error){
-        console.error('Error al crear usuario agente:', error);
+        console.error('❌ Error al crear usuario agente:', error);
+        console.log('🔄 Intentando buscar usuario con firebase_uid: 0000');
         user = await User.findOne({ where: { firebase_uid: '0000' } });
+        console.log('🔍 Usuario 0000 encontrado:', user ? 'sí' : 'no');
         if (!user) {
-            return null
+            console.log('❌ No se encontró usuario 0000, retornando null');
+            return null;
         }
+        console.log('✅ Retornando usuario 0000 desde catch');
+        return user;
     }
 }
 
