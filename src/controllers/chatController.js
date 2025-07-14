@@ -1,4 +1,4 @@
-import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient } from '../services/chatwootService.js';
+import { createContactIfNotExists, getContactConversation, createConversation, getClientSingleConversation, createConversationFromClient, getConversationAssignee, getConversationAssigneeFullProfile } from '../services/chatwootService.js';
 import { User, Group, InvitedGuest, GroupMember } from '../models/index.js';
 import { getUserDiffusionGroups } from '../services/diffusionService.js';
 
@@ -224,6 +224,55 @@ export const getChat = async (req, res) => {
     } catch (error) {
         console.error('Error al obtener chat:', error);
         return res.status(500).json({ error: 'Error al obtener el chat' + error.message });
+    }
+}; 
+
+/**
+ * Obtiene información del agente asignado a una conversación
+ */
+export const getConversationAgent = async (req, res) => {
+    try {
+        const { conversationId } = req.params;
+        const { fullProfile = false } = req.query;
+
+        if (!conversationId) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'conversationId es requerido'
+            });
+        }
+
+        let agentInfo;
+        
+        if (fullProfile === 'true') {
+            // Obtener perfil completo del agente
+            agentInfo = await getConversationAssigneeFullProfile(conversationId);
+        } else {
+            // Obtener solo información básica del agente
+            agentInfo = await getConversationAssignee(conversationId);
+        }
+
+        if (!agentInfo) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'No hay agente asignado a esta conversación',
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Información del agente obtenida correctamente',
+            data: agentInfo
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo información del agente:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error al obtener información del agente',
+            error: error.message
+        });
     }
 }; 
 

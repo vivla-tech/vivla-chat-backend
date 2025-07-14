@@ -59,6 +59,11 @@ async function listUsers() {
   return await chatwootRequest('/agents');
 }
 
+async function listAgents() {
+  const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/agents`;
+  return await chatwootRequest(url);
+}
+
 /**
  * Crea un nuevo usuario (agente) en Chatwoot.
  * Endpoint: POST /api/v1/agents
@@ -402,6 +407,124 @@ async function resetTicketCustomAttributes(conversationId) {
     });
 }
 
+/**
+ * Obtiene una conversación específica con toda su información.
+ * Endpoint: GET /api/v1/accounts/{account_id}/conversations/{conversation_id}
+ * @param {number|string} conversationId - El ID de la conversación
+ * @returns {Promise<Object>} - La conversación con toda su información incluyendo meta.assignee
+ */
+async function getConversation(conversationId) {
+    if (!conversationId) {
+        throw new Error('conversationId is required');
+    }
+    
+    return await chatwootRequest(`/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}`);
+}
+
+/**
+ * Obtiene información del agente asignado a una conversación.
+ * @param {number|string} conversationId - El ID de la conversación
+ * @returns {Promise<Object|null>} - Información del agente asignado o null si no hay asignación
+ */
+async function getConversationAssignee(conversationId) {
+    try {
+        const conversation = await getConversation(conversationId);
+        
+        // Extraer información del agente asignado
+        const assignee = conversation.meta?.assignee;
+        
+        if (!assignee) {
+            console.log(`No hay agente asignado a la conversación ${conversationId}`);
+            return null;
+        }
+        
+        return {
+            id: assignee.id,
+            name: assignee.name,
+            email: assignee.email,
+            available_name: assignee.available_name,
+            avatar_url: assignee.avatar_url,
+            type: assignee.type
+        };
+    } catch (error) {
+        console.error('Error obteniendo agente asignado:', error);
+        throw new Error(`Failed to get conversation assignee: ${error.message}`);
+    }
+}
+
+/**
+ * Obtiene información completa del agente asignado a una conversación.
+ * Combina getConversationAssignee + listUsers para obtener datos completos.
+ * @param {number|string} conversationId - El ID de la conversación
+ * @returns {Promise<Object|null>} - Información completa del agente o null si no hay asignación
+ */
+async function getConversationAssigneeFullProfile(conversationId) {
+    try {
+        // Paso 1: Obtener información básica del agente asignado
+        const assignee = await getConversationAssignee(conversationId);
+        
+        if (!assignee) {
+            return null;
+        }
+        
+        // Paso 2: Obtener todos los agentes y buscar el específico
+        const allAgents = await listAgents();
+        const agentProfiles = allAgents.payload || allAgents;
+        
+        // Buscar el agente específico por ID
+        const fullProfile = agentProfiles.find(agent => agent.id === assignee.id);
+        
+        if (!fullProfile) {
+            console.warn(`Agente con ID ${assignee.id} no encontrado en la lista de agentes`);
+            return assignee; // Devolver solo la información básica si no se encuentra el perfil completo
+        }
+        
+        // Combinar información básica con perfil completo
+        return {
+            ...assignee,
+            availability_status: fullProfile.availability_status,
+            role: fullProfile.role,
+            confirmed: fullProfile.confirmed,
+            account_id: fullProfile.account_id,
+            custom_attributes: fullProfile.custom_attributes,
+            thumbnail: fullProfile.thumbnail || fullProfile.avatar_url
+        };
+    } catch (error) {
+        console.error('Error obteniendo perfil completo del agente:', error);
+        throw new Error(`Failed to get agent full profile: ${error.message}`);
+    }
+}
+
+/**
+ * Obtiene información de un agente específico por ID.
+ * @param {number|string} agentId - El ID del agente
+ * @returns {Promise<Object|null>} - Información del agente o null si no se encuentra
+ */
+async function getAgentById(agentId) {
+    if (!agentId) {
+        throw new Error('agentId is required');
+    }
+    
+    try {
+        // Obtener todos los agentes
+        const allAgents = await listAgents();
+        const agentProfiles = allAgents.payload || allAgents;
+        
+        // Buscar el agente específico por ID
+        const agent = agentProfiles.find(agent => agent.id === agentId);
+        
+        if (!agent) {
+            console.warn(`Agente con ID ${agentId} no encontrado`);
+            return null;
+        }
+        
+        return agent;
+    } catch (error) {
+        console.error('Error obteniendo agente por ID:', error);
+        throw new Error(`Failed to get agent by ID: ${error.message}`);
+    }
+}
+
 export {
     listUsers,
     createUser,
@@ -418,5 +541,10 @@ export {
     createClientConversation as createConversationFromClient,
     getClientSingleConversation,
     sendClientMessage,
-    resetTicketCustomAttributes
+    resetTicketCustomAttributes,
+    // Nuevas funciones para agentes
+    getConversation,
+    getConversationAssignee,
+    getConversationAssigneeFullProfile,
+    getAgentById
 }; 
