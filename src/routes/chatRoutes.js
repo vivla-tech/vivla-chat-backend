@@ -7,6 +7,6 @@ const router = express.Router();
 router.post('/get', getChat);
 
 // Ruta para obtener información del agente asignado a una conversación
-router.get('/conversation/:conversationId/agent', getConversationAgent);
+router.get('/group/:groupId/agent', getConversationAgent);
 
 export default router; 

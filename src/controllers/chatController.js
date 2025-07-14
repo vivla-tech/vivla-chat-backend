@@ -232,24 +232,42 @@ export const getChat = async (req, res) => {
  */
 export const getConversationAgent = async (req, res) => {
     try {
-        const { conversationId } = req.params;
-        const { fullProfile = false } = req.query;
+        const { groupId } = req.params;
+        const { fullProfile = true } = req.query;
 
-        if (!conversationId) {
+        if (!groupId) {
             return res.status(400).json({
                 status: 'error',
-                message: 'conversationId es requerido'
+                message: 'groupId es requerido'
             });
         }
 
+        // Paso 1: Buscar el grupo en la base de datos
+        const group = await Group.findByPk(groupId);
+        if (!group) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'Grupo no encontrado'
+            });
+        }
+
+        // Paso 2: Verificar que el grupo tiene conversationId
+        if (!group.cw_conversation_id) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'El grupo no tiene una conversación asociada en Chatwoot'
+            });
+        }
+
+        // Paso 3: Obtener información del agente usando el conversationId
         let agentInfo;
         
         if (fullProfile === 'true') {
             // Obtener perfil completo del agente
-            agentInfo = await getConversationAssigneeFullProfile(conversationId);
+            agentInfo = await getConversationAssigneeFullProfile(group.cw_conversation_id);
         } else {
             // Obtener solo información básica del agente
-            agentInfo = await getConversationAssignee(conversationId);
+            agentInfo = await getConversationAssignee(group.cw_conversation_id);
         }
 
         if (!agentInfo) {
@@ -263,7 +281,14 @@ export const getConversationAgent = async (req, res) => {
         return res.status(200).json({
             status: 'success',
             message: 'Información del agente obtenida correctamente',
-            data: agentInfo
+            data: {
+                agent: agentInfo,
+                group: {
+                    id: group.group_id,
+                    name: group.name,
+                    conversation_id: group.cw_conversation_id
+                }
+            }
         });
 
     } catch (error) {
