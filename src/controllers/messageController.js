@@ -281,17 +281,18 @@ export const chatwootWebhook = async (req, res) => {
                         return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
                     }
                 }else{
-                    user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id.toString() } });
-                    if (!user) {
-                       user = await User.create({
-                        firebase_uid: '0000#'+ sender.id.toString(),
-                        name: sender.name,
-                        email: sender.email,
-                        house_name: 'VIVLA',
-                        cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
-                        cw_contact_id: sender.id
-                       });
-                    }
+                    // user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id.toString() } });
+                    // if (!user) {
+                    //    user = await User.create({
+                    //     firebase_uid: '0000#'+ sender.id.toString(),
+                    //     name: sender.name,
+                    //     email: sender.email,
+                    //     house_name: 'VIVLA',
+                    //     cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
+                    //     cw_contact_id: sender.id
+                    //    });
+                    // }
+                    user = await createAgentUser(sender);
                 }
                 if (!user) {
                     return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
@@ -364,6 +365,30 @@ export const chatwootWebhook = async (req, res) => {
         });
     }
 };
+
+async function createAgentUser(sender) {
+    let user;
+    try{
+        user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id.toString() } });
+        if (!user) {
+            user = await User.create({
+                firebase_uid: '0000#'+ sender.id.toString(),
+                name: sender.name,
+                email: sender.email,
+                house_name: 'VIVLA',
+                cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
+                cw_contact_id: sender.id
+            });
+        }
+        return user;
+    }catch(error){
+        console.error('Error al crear usuario agente:', error);
+        user = await User.findOne({ where: { firebase_uid: '0000' } });
+        if (!user) {
+            return null
+        }
+    }
+}
 
 async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, content) {
     // Crear un nuevo mensaje en la tabla de Messages
