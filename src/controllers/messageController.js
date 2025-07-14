@@ -281,17 +281,6 @@ export const chatwootWebhook = async (req, res) => {
                         return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
                     }
                 }else{
-                    // user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id.toString() } });
-                    // if (!user) {
-                    //    user = await User.create({
-                    //     firebase_uid: '0000#'+ sender.id.toString(),
-                    //     name: sender.name,
-                    //     email: sender.email,
-                    //     house_name: 'VIVLA',
-                    //     cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
-                    //     cw_contact_id: sender.id
-                    //    });
-                    // }
                     user = await createAgentUser(sender);
                 }
                 if (!user) {
@@ -369,9 +358,9 @@ export const chatwootWebhook = async (req, res) => {
 async function createAgentUser(sender) {
     let user;
     try{
-        console.log('🔍 Buscando usuario con email:', sender.email, 'y cw_contact_id:', sender.id.toString());
+        // console.log('🔍 Buscando usuario con email:', sender.email, 'y cw_contact_id:', sender.id.toString());
         user = await User.findOne({ where: { email: sender.email, cw_contact_id: sender.id.toString() } });
-        console.log('🔍 Resultado de búsqueda:', user ? 'encontrado' : 'no encontrado');
+        // console.log('🔍 Resultado de búsqueda:', user ? 'encontrado' : 'no encontrado');
         
         if (!user) {
             console.log('➕ Creando nuevo usuario agente...');
@@ -383,9 +372,9 @@ async function createAgentUser(sender) {
                 cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
                 cw_contact_id: sender.id
             });
-            console.log('✅ Usuario creado exitosamente');
+            // console.log('✅ Usuario creado exitosamente');
         }
-        console.log(' Retornando usuario desde try');
+        // console.log(' Retornando usuario desde try');
         return user;
     }catch(error){
         console.error('❌ Error al crear usuario agente:', error);
