@@ -1,9 +1,8 @@
 import { Message, User, Group, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
- import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
+import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
 import { emitToGroup } from '../services/websocketService.js';
 import { createTicket } from '../services/zendeskService.js';
-import { User } from '../models/index.js';
 
 
 // // Obtener mensajes de un grupo
