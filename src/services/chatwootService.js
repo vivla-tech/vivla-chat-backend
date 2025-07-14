@@ -9,6 +9,7 @@ const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || 'https://app.chatwoot
 const CHATWOOT_PUBLIC_BASE_URL = process.env.CHATWOOT_PUBLIC_BASE_URL;
 const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID;
 const CHATWOOT_INBOX_ID = process.env.CHATWOOT_INBOX_ID;
+const DEFAULT_PHONE_NUMBER = process.env.DEFAULT_PHONE_NUMBER;
 
 // Validar variables de entorno requeridas
 if (!CHATWOOT_ACCOUNT_ID) {
@@ -438,14 +439,34 @@ async function getConversationAssignee(conversationId) {
             return null;
         }
         
-        return {
+        // Función para detectar si es un número de teléfono
+        const isPhoneNumber = (str) => {
+            if (!str) return false;
+            // Patrón para números de teléfono (permite +, espacios, guiones, paréntesis)
+            const phonePattern = /^[\+]?[0-9\s\-\(\)]{7,}$/;
+            return phonePattern.test(str.trim());
+        };
+
+        // Determinar si available_name es un teléfono
+        const availableName = assignee.available_name;
+        const isPhone = isPhoneNumber(availableName);
+        
+        const result = {
             id: assignee.id,
             name: assignee.name,
             email: assignee.email,
-            available_name: assignee.available_name,
             avatar_url: assignee.avatar_url,
             type: assignee.type
         };
+
+        // Añadir el campo con la key correcta
+        if (isPhone) {
+            result.phone = availableName;
+        } else {
+            result.phone = DEFAULT_PHONE_NUMBER;
+        }
+
+        return result;
     } catch (error) {
         console.error('Error obteniendo agente asignado:', error);
         throw new Error(`Failed to get conversation assignee: ${error.message}`);
