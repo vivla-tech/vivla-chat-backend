@@ -276,12 +276,12 @@ export const chatwootWebhook = async (req, res) => {
                 // get agent user
                 let user;
                 if(isBotMessage){
-                    user = await User.findOne({ where: { firebase_uid: '0000' } });
+                    user = await User.findOne({ where: { email: 'cx@vivla.es', firebase_uid: '0000' } });
                     if (!user) {
                         return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
                     }
                 }else{
-                    user = await User.findOne({ where: { email: sender.email } });
+                    user = await User.findOne({ where: { email: sender.email, firebase_uid: '0000' } });
                     if (!user) {
                        user = await User.create({
                         firebase_uid: '0000',
