@@ -3,6 +3,7 @@ import { Op } from 'sequelize';
  import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
 import { emitToGroup } from '../services/websocketService.js';
 import { createTicket } from '../services/zendeskService.js';
+import { User } from '../models/index.js';
 
 
 // // Obtener mensajes de un grupo
@@ -254,10 +255,10 @@ export const chatwootWebhook = async (req, res) => {
                 console.log('Nuevo mensaje creado y emitido.');
 
             } else if (message_type === 'outgoing') { // MENSAJES DE AGENTES (VIVLA)
-                const user = await User.findOne({ where: { firebase_uid: '0000' } });
-                if (!user) {
-                    return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
-                }
+                // const user = await User.findOne({ where: { firebase_uid: '0000' } });
+                // if (!user) {
+                //     return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
+                // }
                 const group = await Group.findOne({ where: { cw_conversation_id: conversation.id.toString() } });
                 if (!group) {
                     return res.status(404).json({ error: 'Grupo no encontrado' });
@@ -272,6 +273,31 @@ export const chatwootWebhook = async (req, res) => {
                     agentName = `VIVLA - ${capitalizeFirstLetter(sender.name)}`;
                 }
                 const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
+
+                // get agent user
+                let user;
+                if(isBotMessage){
+                    user = await User.findOne({ where: { firebase_uid: '0000' } });
+                    if (!user) {
+                        return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
+                    }
+                }else{
+                    user = await User.findOne({ where: { email: sender.email } });
+                    if (!user) {
+                       user = await User.create({
+                        firebase_uid: '0000',
+                        name: sender.name,
+                        email: sender.email,
+                        house_name: 'VIVLA',
+                        cw_source_id: 'dac670c8-7f59-4827-92c5-7f2efbf65cde',
+                        cw_contact_id: 0
+                       });
+                    }
+                }
+                if (!user) {
+                    return res.status(404).json({ error: 'Usuario VIVLA no encontrado' });
+                }
+                // end get agent user
 
                 if(attachments && attachments.length > 0){
                     for(const attachment of attachments){
