@@ -231,9 +231,9 @@ function processAgentMessage(content, sender) {
     
     if (content && content.includes('🤖')) {
         isBotMessage = true;
-        agentName = 'VIVLA - 🤖';
+        agentName = '🤖 VIVLA';
     } else {
-        agentName = `VIVLA - ${capitalizeFirstLetter(sender.name)}`;
+        agentName = `${capitalizeFirstLetter(sender.name)}`;
     }
     
     const cleanContent = isBotMessage ? cleanBotMessage(content) : content;
