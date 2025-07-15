@@ -6,9 +6,10 @@ import path from 'path';
  * Envía un mensaje con una imagen a una conversación de Chatwoot usando una URL de imagen.
  * @param {string} conversationId - El ID de la conversación en Chatwoot.
  * @param {string} firebaseImageUrl - La URL pública o firmada de la imagen en Firebase Storage.
+ * @param {string} content - Contenido del mensaje (opcional, por defecto vacío).
  * @returns {Promise<object>} La respuesta de la API de Chatwoot.
  */
-export async function sendMediaLinkToChatwoot(conversationId, firebaseImageUrl) {
+export async function sendMediaLinkToChatwoot(conversationId, firebaseImageUrl, content = '') {
 
   // --- Variables de configuración (mueve esto a variables de entorno en un proyecto real) ---
   const chatwootAccountId = process.env.CHATWOOT_ACCOUNT_ID;
@@ -48,7 +49,7 @@ export async function sendMediaLinkToChatwoot(conversationId, firebaseImageUrl) 
     form.append('attachments[]', imageBuffer, { filename });
     
     // Adjuntamos el resto de los campos del formulario
-    form.append('content', '');
+    form.append('content', content);
     form.append('message_type', 'incoming'); // O 'outgoing' si lo envía el agente
     // Chatwoot puede inferir el file_type, pero es bueno ser explícito
     // form.append('file_type', 'image'); 

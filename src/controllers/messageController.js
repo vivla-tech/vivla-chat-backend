@@ -167,7 +167,7 @@ async function handleOutgoingMessage(sender, conversation, content, attachments)
     const user = await getAgentUser(isBotMessage, sender);
     
     if (attachments && attachments.length > 0) {
-        await processAttachments(group.group_id, user.id, agentName, 'outgoing', attachments);
+        await processAttachments(group.group_id, user.id, agentName, 'outgoing', attachments, cleanContent);
     } else {
         await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent);
     }
@@ -308,13 +308,15 @@ function isValidTicketData(ticketData) {
  * Procesa attachments de mensajes
  */
 async function processAttachments(groupId, senderId, senderName, direction, attachments, fallbackContent = '') {
+    console.log('🔍 Procesando attachments:', attachments);
+    console.log('🔍 Fallback content:', fallbackContent);
     for (const attachment of attachments) {
         if (attachment.data_url) {
             const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
             const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
-            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, attachment, cleanDataUrl, cleanThumbUrl);
+            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, attachment, cleanDataUrl, cleanThumbUrl, fallbackContent);
         } else if (fallbackContent) {
-            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, attachment, fallbackContent);
+            await storeAndEmitTextMessage(groupId, senderId, senderName, direction, fallbackContent);
         }
     }
 }
@@ -475,7 +477,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     });
 }
 
-async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, attachment, media_url, thumb_url) {
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, attachment, media_url, thumb_url, content = '') {
     
     const file_size = obtainFileSizeFromAttachment(attachment);
     const file_name = obtainFileNameFromAttachment(attachment);
@@ -488,7 +490,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         sender_name: sender_name,
         message_type: message_type,
         direction: direction,
-        content: '',
+        content: content,
         media_url: media_url,
         thumb_url: thumb_url,
         file_size: file_size,
@@ -499,7 +501,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
     emitToGroup(group_id, 'chat_message', {
         groupId: group_id,
         userId: sender_id,
-        // message: media_url,
+        message: content,
         sender_name: sender_name,
         media_url: media_url,
         thumb_url: thumb_url,

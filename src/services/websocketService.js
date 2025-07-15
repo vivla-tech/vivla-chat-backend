@@ -90,8 +90,9 @@ function handleConnection(socket) {
             }
 
             if (messageType && messageType != 'text') {
+                const messageContent = content || '';
                 console.log('📺 🧐 Datos multipedia recibidos:', data);
-                await sendMediaMessage(group.cw_conversation_id, media_url);
+                await sendMediaMessage(group.cw_conversation_id, media_url, messageContent);
             }else{
                 // Enviar a Chatwoot
                 const messageContent = `**${user.name}**\n\n${content}`;
