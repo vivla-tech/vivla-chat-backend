@@ -309,6 +309,7 @@ function isValidTicketData(ticketData) {
  */
 async function processAttachments(groupId, senderId, senderName, direction, attachments, fallbackContent = '') {
     console.log('🔍 Procesando attachments:', attachments);
+    fallbackContent = fallbackContent || '';
     console.log('🔍 Fallback content:', fallbackContent);
     for (const attachment of attachments) {
         if (attachment.data_url) {
