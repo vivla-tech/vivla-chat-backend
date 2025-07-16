@@ -193,6 +193,12 @@ export function emitToGroup(groupId, event, data, isDiffusionGroup = false) {
 export function emitNotificationNewMessage(groupId, event, data, isDiffusionGroup = false) {
     try{
         if (io) {
+            console.log('🔔 Emitting notification to group:', {
+                groupId,
+                event,
+                data,
+                isDiffusionGroup
+            });
             // ✅ NUEVO: Emitir notificación a todos EXCEPTO al remitente
             const notificationData = {
                 groupId: groupId,

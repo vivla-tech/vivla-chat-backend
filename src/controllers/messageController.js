@@ -485,7 +485,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         timestamp: newMessage.created_at
     });
 
-    emitNotificationNewMessage(group_id, 'send_diffusion_message', {
+    emitNotificationNewMessage(group_id, 'new_message_notification', {
         groupId: group_id,
         userId: sender_id,
         message: content,
