@@ -106,13 +106,29 @@ export const handleTicketStatusChange = async (ticketDetail, event) => {
             ticketId: ticketDetail.id,
             previousStatus: event.previous,
             currentStatus: event.current,
-            subject: ticketDetail.subject
+            subject: ticketDetail.subject,
+            external_id: ticketDetail.external_id // ← Añadir para debug
         });
+
+        // ✅ VALIDACIÓN NECESARIA
+        if (!ticketDetail.external_id) {
+            console.warn(`Ticket ${ticketDetail.id} no tiene external_id, saltando notificación a Chatwoot`);
+            return {
+                success: true,
+                ticketId: ticketDetail.id,
+                statusChange: {
+                    from: event.previous,
+                    to: event.current
+                },
+                skipped: 'No external_id found'
+            };
+        }
 
         const ticketUrl = `https://${process.env.ZENDESK_SUBDOMAIN}.zendesk.com/agent/tickets/${ticketDetail.id}`;
         const ticketMessage = `👋 Hola\n\nTicket actualizado:\n - 🆔 Id: **${ticketDetail.id}**\n - ⚙️ Estado: **${event.current}**\n- 🔗 Puedes verlo en: ${ticketUrl}\n\nAgur!`;
             
-        sendInternalNoteMessage(ticketDetail.external_id, ticketMessage);
+        // ✅ Solo llamar si external_id existe
+        await sendInternalNoteMessage(ticketDetail.external_id, ticketMessage);
 
         return {
             success: true,

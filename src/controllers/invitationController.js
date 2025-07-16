@@ -1,4 +1,4 @@
-import { InvitedGuest, Group, User } from '../models/index.js';
+import { InvitedGuest, Group, User, GroupMember } from '../models/index.js';
 import { auth } from '../config/firebase.js';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
@@ -216,13 +216,27 @@ export const processInvitation = async (req, res) => {
         guest.accepted_by_user_id = user.id;
         await guest.save();
 
-        // Añadir el usuario al grupo
-        const group = guest.group;
-        await group.addUser(user.id);
+        // Añadir el usuario al grupo usando GroupMember
+        const group = await Group.findByPk(guest.group.group_id);
+        const existing = await GroupMember.findOne({ 
+            where: { 
+                group_id: group.group_id, 
+                user_id: user.id  // ← Cambiar firebase_uid por user.id
+            } 
+        });
+        if (!existing) {
+            await GroupMember.create({
+                group_id: group.group_id,
+                user_id: user.id
+            });
+        }
+
+        const customToken = await auth.createCustomToken(firebaseUid);
 
         return res.json({
             success: true,
             message: 'Invitación procesada exitosamente',
+            token: customToken,
             group: {
                 group_id: group.group_id,
                 name: group.name

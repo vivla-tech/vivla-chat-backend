@@ -69,6 +69,12 @@ const Message = sequelize.define('Message', {
         type: DataTypes.TEXT,
         allowNull: false
     },
+    tags: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: [],
+        comment: 'Array de tags para categorizar el mensaje (ej: ["estancia", "incidencia", "alquiler"])'
+    },
     created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
