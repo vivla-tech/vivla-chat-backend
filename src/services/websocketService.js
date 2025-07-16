@@ -190,6 +190,34 @@ export function emitToGroup(groupId, event, data, isDiffusionGroup = false) {
     }
 }
 
+export function emitNotificationNewMessage(groupId, event, data, isDiffusionGroup = false) {
+    try{
+        if (io) {
+            // ✅ NUEVO: Emitir notificación a todos EXCEPTO al remitente
+            const notificationData = {
+                groupId: groupId,
+                message: {
+                    id: groupId,
+                    content: data.content,
+                    sender_name: data.sender_name || 'Usuario',
+                    sender_id: data.userId,
+                    created_at: data.timestamp || new Date(),
+                    message_type: data.message_type || 'text'
+                },
+                senderId: data.userId,
+                timestamp: Date.now()
+            };
+
+            const roomName = `group_${groupId}${isDiffusionGroup ? '_diffusion' : ''}`;
+            io.to(roomName).emit(event, notificationData);
+        } else {
+            console.error('Notification WebSocket server not initialized');
+        }
+    } catch (error) {
+        console.error('Error al emitir notificación de nuevo mensaje:', error);
+    }
+}
+
 /**
  * Envía un mensaje a un usuario específico
  * @param {string} userId - ID del usuario
@@ -211,5 +239,6 @@ export function emitToUser(userId, event, data) {
 export const websocketService = {
     initialize: initializeWebSocket,
     emitToGroup,
-    emitToUser
+    emitToUser,
+    emitNotificationNewMessage
 }; 

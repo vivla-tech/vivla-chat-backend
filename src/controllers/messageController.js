@@ -1,7 +1,7 @@
 import { Message, User, Group, GroupMember } from '../models/index.js';
 import { Op } from 'sequelize';
 import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
-import { emitToGroup } from '../services/websocketService.js';
+import { emitToGroup, emitNotificationNewMessage } from '../services/websocketService.js';
 import { createTicket } from '../services/zendeskService.js';
 import { analyzeMessageAndGetTags } from '../services/tagService.js';
 
@@ -476,6 +476,16 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
 
     // Emitir el mensaje por WebSocket a todos los usuarios del grupo
     emitToGroup(group_id, 'chat_message', {
+        groupId: group_id,
+        userId: sender_id,
+        message: content,
+        sender_name: sender_name,
+        message_type: 'text',
+        tags: tags,
+        timestamp: newMessage.created_at
+    });
+
+    emitNotificationNewMessage(group_id, 'send_diffusion_message', {
         groupId: group_id,
         userId: sender_id,
         message: content,
