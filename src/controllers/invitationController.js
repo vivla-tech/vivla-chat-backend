@@ -231,9 +231,12 @@ export const processInvitation = async (req, res) => {
             });
         }
 
+        const customToken = await auth.createCustomToken(firebaseUid);
+
         return res.json({
             success: true,
             message: 'Invitación procesada exitosamente',
+            token: customToken,
             group: {
                 group_id: group.group_id,
                 name: group.name
