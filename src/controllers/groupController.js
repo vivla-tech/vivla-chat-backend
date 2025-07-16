@@ -20,13 +20,13 @@ export const createGroup = async (req, res) => {
         // Crear el grupo
         const group = await Group.create({
             name,
-            owner_firebase_uid
+            user_id: user.id
         });
 
         // Añadir al owner como miembro del grupo
         await GroupMember.create({
             group_id: group.group_id,
-            firebase_uid: owner_firebase_uid,
+            user_id: user.id,
             role: 'owner'
         });
 
@@ -124,13 +124,13 @@ export const getUserGroups = async (req, res) => {
                 {
                     model: GroupMember,
                     as: 'members',
-                    where: { firebase_uid },
+                    where: { user_id: user.id },
                     required: false, // Para que también incluya los grupos donde es owner
                     include: [
                         {
                             model: User,
                             as: 'member',
-                            attributes: ['firebase_uid', 'name', 'email', 'house_name']
+                            attributes: ['id', 'name', 'email', 'house_name']
                         }
                     ]
                 },
@@ -147,9 +147,9 @@ export const getUserGroups = async (req, res) => {
             ],
             where: {
                 [Op.or]: [
-                    { owner_firebase_uid: firebase_uid },
+                    { user_id: user.id },
                     // Esto permite que también se incluyan los grupos donde es miembro
-                    { '$members.firebase_uid$': firebase_uid }
+                    { '$members.user_id$': user.id }
                 ]
             },
             distinct: true
@@ -180,13 +180,13 @@ export const addUserToGroup = async (req, res) => {
         }
 
         // Verifica si ya es miembro
-        const existing = await GroupMember.findOne({ where: { group_id: groupId, firebase_uid } });
+        const existing = await GroupMember.findOne({ where: { group_id: groupId, user_id: user.id } });
         if (existing) {
             return res.status(200).json({ success: true, message: 'El usuario ya es miembro del grupo' });
         }
 
         // Añade el usuario como miembro
-        await GroupMember.create({ group_id: groupId, firebase_uid, role: 'member' });
+        await GroupMember.create({ group_id: groupId, user_id: user.id, role: 'member' });
 
         return res.json({ success: true, message: 'Usuario añadido al grupo' });
     } catch (error) {
