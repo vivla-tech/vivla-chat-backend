@@ -1,5 +1,5 @@
 import express from 'express';
-import { searchMessagesByTags, getTagStats, searchMessagesByText } from '../controllers/searchController.js';
+import { searchMessagesByTags, getTagStats, searchMessagesByText, getAvailableTags } from '../controllers/searchController.js';
 
 const router = express.Router();
 
@@ -23,5 +23,12 @@ router.get('/tags/stats', getTagStats);
  * @access Public (puede requerir autenticación según necesidades)
  */
 router.get('/messages/text', searchMessagesByText);
+
+/**
+ * @route GET /api/search/tags/available
+ * @desc Obtiene la lista de tags disponibles en el sistema
+ * @access Public
+ */
+router.get('/tags/available', getAvailableTags);
 
 export default router; 

@@ -1,6 +1,7 @@
 import { Message, Group, User } from '../models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '../config/database.js';
+import { getAllAvailableTags } from '../services/tagService.js';
 
 /**
  * Busca mensajes por tags específicos
@@ -240,6 +241,39 @@ export const searchMessagesByText = async (req, res) => {
         return res.status(500).json({
             status: 'error',
             message: 'Error al realizar la búsqueda de texto',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Obtiene la lista de tags disponibles en el sistema
+ * @route GET /api/search/tags/available
+ * @returns {Object} Lista de tags disponibles
+ */
+export const getAvailableTags = async (req, res) => {
+    try {
+        console.log('🏷️ Obteniendo lista de tags disponibles...');
+        
+        const availableTags = getAllAvailableTags();
+        
+        console.log(`✅ Tags disponibles: [${availableTags.join(', ')}]`);
+        
+        return res.status(200).json({
+            status: 'success',
+            message: 'Lista de tags disponibles obtenida correctamente',
+            data: {
+                tags: availableTags,
+                total: availableTags.length,
+                description: 'Tags disponibles para búsqueda y análisis de mensajes'
+            }
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo tags disponibles:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error al obtener la lista de tags disponibles',
             error: error.message
         });
     }
