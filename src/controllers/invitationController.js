@@ -218,10 +218,18 @@ export const processInvitation = async (req, res) => {
 
         // Añadir el usuario al grupo usando GroupMember
         const group = await Group.findByPk(guest.group.group_id);
-        await GroupMember.create({
-            group_id: group.group_id,
-            user_id: user.id
+        const existing = await GroupMember.findOne({ 
+            where: { 
+                group_id: group.group_id, 
+                user_id: user.id  // ← Cambiar firebase_uid por user.id
+            } 
         });
+        if (!existing) {
+            await GroupMember.create({
+                group_id: group.group_id,
+                user_id: user.id
+            });
+        }
 
         return res.json({
             success: true,
