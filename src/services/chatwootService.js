@@ -9,6 +9,7 @@ const CHATWOOT_BASE_URL = process.env.CHATWOOT_BASE_URL || 'https://app.chatwoot
 const CHATWOOT_PUBLIC_BASE_URL = process.env.CHATWOOT_PUBLIC_BASE_URL;
 const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID;
 const CHATWOOT_INBOX_ID = process.env.CHATWOOT_INBOX_ID;
+const DEFAULT_PHONE_NUMBER = process.env.DEFAULT_PHONE_NUMBER;
 
 // Validar variables de entorno requeridas
 if (!CHATWOOT_ACCOUNT_ID) {
@@ -57,6 +58,11 @@ async function chatwootPublicRequest(endpoint, options = {}) {
  */
 async function listUsers() {
   return await chatwootRequest('/agents');
+}
+
+async function listAgents() {
+  const url = `/accounts/${CHATWOOT_ACCOUNT_ID}/agents`;
+  return await chatwootRequest(url);
 }
 
 /**
@@ -402,6 +408,145 @@ async function resetTicketCustomAttributes(conversationId) {
     });
 }
 
+/**
+ * Obtiene una conversación específica con toda su información.
+ * Endpoint: GET /api/v1/accounts/{account_id}/conversations/{conversation_id}
+ * @param {number|string} conversationId - El ID de la conversación
+ * @returns {Promise<Object>} - La conversación con toda su información incluyendo meta.assignee
+ */
+async function getConversation(conversationId) {
+    if (!conversationId) {
+        throw new Error('conversationId is required');
+    }
+    
+    return await chatwootRequest(`/accounts/${CHATWOOT_ACCOUNT_ID}/conversations/${conversationId}`);
+}
+
+/**
+ * Obtiene información del agente asignado a una conversación.
+ * @param {number|string} conversationId - El ID de la conversación
+ * @returns {Promise<Object|null>} - Información del agente asignado o null si no hay asignación
+ */
+async function getConversationAssignee(conversationId) {
+    try {
+        const conversation = await getConversation(conversationId);
+        
+        // Extraer información del agente asignado
+        const assignee = conversation.meta?.assignee;
+        
+        if (!assignee) {
+            console.log(`No hay agente asignado a la conversación ${conversationId}`);
+            return null;
+        }
+        
+        // Función para detectar si es un número de teléfono
+        const isPhoneNumber = (str) => {
+            if (!str) return false;
+            // Patrón para números de teléfono (permite +, espacios, guiones, paréntesis)
+            const phonePattern = /^[\+]?[0-9\s\-\(\)]{7,}$/;
+            return phonePattern.test(str.trim());
+        };
+
+        // Determinar si available_name es un teléfono
+        const availableName = assignee.available_name;
+        const isPhone = isPhoneNumber(availableName);
+        
+        const result = {
+            id: assignee.id,
+            name: assignee.name,
+            email: assignee.email,
+            avatar_url: assignee.avatar_url,
+            type: assignee.type
+        };
+
+        // Añadir el campo con la key correcta
+        if (isPhone) {
+            result.phone = availableName;
+        } else {
+            result.phone = DEFAULT_PHONE_NUMBER;
+        }
+
+        return result;
+    } catch (error) {
+        console.error('Error obteniendo agente asignado:', error);
+        throw new Error(`Failed to get conversation assignee: ${error.message}`);
+    }
+}
+
+/**
+ * Obtiene información completa del agente asignado a una conversación.
+ * Combina getConversationAssignee + listUsers para obtener datos completos.
+ * @param {number|string} conversationId - El ID de la conversación
+ * @returns {Promise<Object|null>} - Información completa del agente o null si no hay asignación
+ */
+async function getConversationAssigneeFullProfile(conversationId) {
+    try {
+        // Paso 1: Obtener información básica del agente asignado
+        const assignee = await getConversationAssignee(conversationId);
+        
+        if (!assignee) {
+            return null;
+        }
+        
+        // Paso 2: Obtener todos los agentes y buscar el específico
+        const allAgents = await listAgents();
+        const agentProfiles = allAgents.payload || allAgents;
+        
+        // Buscar el agente específico por ID
+        const fullProfile = agentProfiles.find(agent => agent.id === assignee.id);
+        
+        if (!fullProfile) {
+            console.warn(`Agente con ID ${assignee.id} no encontrado en la lista de agentes`);
+            return assignee; // Devolver solo la información básica si no se encuentra el perfil completo
+        }
+        const defaultThumbnail = 'https://cdn.vivla.com/app_images/chat.jpg';
+        
+        // Combinar información básica con perfil completo
+        return {
+            ...assignee,
+            availability_status: fullProfile.availability_status,
+            role: fullProfile.role,
+            confirmed: fullProfile.confirmed,
+            account_id: fullProfile.account_id,
+            custom_attributes: fullProfile.custom_attributes,
+            thumbnail: fullProfile.thumbnail || fullProfile.avatar_url || defaultThumbnail
+        };
+    } catch (error) {
+        console.error('Error obteniendo perfil completo del agente:', error);
+        throw new Error(`Failed to get agent full profile: ${error.message}`);
+    }
+}
+
+/**
+ * Obtiene información de un agente específico por ID.
+ * @param {number|string} agentId - El ID del agente
+ * @returns {Promise<Object|null>} - Información del agente o null si no se encuentra
+ */
+async function getAgentById(agentId) {
+    if (!agentId) {
+        throw new Error('agentId is required');
+    }
+    
+    try {
+        // Obtener todos los agentes
+        const allAgents = await listAgents();
+        const agentProfiles = allAgents.payload || allAgents;
+        
+        // Buscar el agente específico por ID
+        const agent = agentProfiles.find(agent => agent.id === agentId);
+        
+        if (!agent) {
+            console.warn(`Agente con ID ${agentId} no encontrado`);
+            return null;
+        }
+        
+        return agent;
+    } catch (error) {
+        console.error('Error obteniendo agente por ID:', error);
+        throw new Error(`Failed to get agent by ID: ${error.message}`);
+    }
+}
+
 export {
     listUsers,
     createUser,
@@ -418,5 +563,10 @@ export {
     createClientConversation as createConversationFromClient,
     getClientSingleConversation,
     sendClientMessage,
-    resetTicketCustomAttributes
+    resetTicketCustomAttributes,
+    // Nuevas funciones para agentes
+    getConversation,
+    getConversationAssignee,
+    getConversationAssigneeFullProfile,
+    getAgentById
 }; 

@@ -32,6 +32,11 @@ const InvitedGuest = sequelize.define('InvitedGuest', {
         allowNull: false,
         unique: true
     },
+    status: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        defaultValue: 'pending'
+    },
     created_at: {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW
