@@ -201,17 +201,22 @@ export function emitNotificationNewMessage(groupId, event, data, isDiffusionGrou
             });
             // ✅ NUEVO: Emitir notificación a todos EXCEPTO al remitente
             const notificationData = {
-                groupId: groupId,
-                message: {
-                    id: groupId,
-                    content: data.content,
-                    sender_name: data.sender_name || 'Usuario',
-                    sender_id: data.userId,
-                    created_at: data.timestamp || new Date(),
-                    message_type: data.message_type || 'text'
-                },
-                senderId: data.userId,
-                timestamp: Date.now()
+                groupId: groupId    ,
+                userId: data.userId,
+                message:  data.content,
+                sender_name: data.sender_name || 'Usuario',
+                message_type: 'text'
+                // groupId: groupId,
+                // message: {
+                //     id: groupId,
+                //     content: data.content,
+                //     sender_name: data.sender_name || 'Usuario',
+                //     sender_id: data.userId,
+                //     created_at: data.timestamp || new Date(),
+                //     message_type: data.message_type || 'text'
+                // },
+                // senderId: data.userId,
+                // timestamp: Date.now()
             };
 
             const roomName = `group_${groupId}${isDiffusionGroup ? '_diffusion' : ''}`;
