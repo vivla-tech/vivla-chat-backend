@@ -217,7 +217,7 @@ export const processInvitation = async (req, res) => {
         await guest.save();
 
         // Añadir el usuario al grupo
-        const group = guest.group;
+        const group = await Group.findByPk(guest.group.group_id);
         await group.addUser(user.id);
 
         return res.json({
