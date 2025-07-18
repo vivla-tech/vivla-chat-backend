@@ -485,15 +485,16 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         timestamp: newMessage.created_at
     });
 
-    emitNotificationNewMessage(group_id, 'new_message_notification', {
-        groupId: group_id,
-        userId: sender_id,
-        message: content,
-        sender_name: sender_name,
-        message_type: 'text',
-        tags: tags,
-        timestamp: newMessage.created_at
-    });
+    //DEPRECATED to be removed
+    // emitNotificationNewMessage(group_id, 'new_message_notification', {
+    //     groupId: group_id,
+    //     userId: sender_id,
+    //     message: content,
+    //     sender_name: sender_name,
+    //     message_type: 'text',
+    //     tags: tags,
+    //     timestamp: newMessage.created_at
+    // });
 }
 
 async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, attachment, media_url, thumb_url, content = '', tags = []) {

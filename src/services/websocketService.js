@@ -190,6 +190,7 @@ export function emitToGroup(groupId, event, data, isDiffusionGroup = false) {
     }
 }
 
+//DEPRECATED
 export function emitNotificationNewMessage(groupId, event, data, isDiffusionGroup = false) {
     try{
         if (io) {
@@ -206,17 +207,6 @@ export function emitNotificationNewMessage(groupId, event, data, isDiffusionGrou
                 message:  data.content,
                 sender_name: data.sender_name || 'Usuario',
                 message_type: 'text'
-                // groupId: groupId,
-                // message: {
-                //     id: groupId,
-                //     content: data.content,
-                //     sender_name: data.sender_name || 'Usuario',
-                //     sender_id: data.userId,
-                //     created_at: data.timestamp || new Date(),
-                //     message_type: data.message_type || 'text'
-                // },
-                // senderId: data.userId,
-                // timestamp: Date.now()
             };
 
             const roomName = `group_${groupId}${isDiffusionGroup ? '_diffusion' : ''}`;

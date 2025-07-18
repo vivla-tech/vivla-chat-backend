@@ -11,6 +11,11 @@ const getBaseUrl = () => {
     return process.env.FRONTEND_URL || 'exp://192.168.1.43:8081';
 };
 
+// URL para invitaciones
+const getInvitationUrl = () => {
+    return process.env.INVITATION_URL || 'https://chat-invitations.vercel.app';
+};
+
 // Función auxiliar para generar token mágico
 const generateMagicToken = () => {
     return crypto.randomBytes(32).toString('hex');
@@ -33,9 +38,9 @@ export const createInvitation = async (req, res) => {
             expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
         });
 
-        // Usar la URL del frontend desde las variables de entorno
-        const frontendUrl = getBaseUrl();
-        const inviteLink = `${frontendUrl}join/${token}?email=${email}`;
+        // Usar la URL de invitación desde las variables de entorno
+        const invitationUrl = getInvitationUrl();
+        const inviteLink = `${invitationUrl}/id=${token}&email=${email}`;
 
         return res.status(201).json({
             success: true,
