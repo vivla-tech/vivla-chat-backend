@@ -40,7 +40,7 @@ export const createInvitation = async (req, res) => {
 
         // Usar la URL de invitación desde las variables de entorno
         const invitationUrl = getInvitationUrl();
-        const inviteLink = `${invitationUrl}/id=${token}&email=${email}`;
+        const inviteLink = `${invitationUrl}?id=${token}&email=${email}`;
 
         return res.status(201).json({
             success: true,
