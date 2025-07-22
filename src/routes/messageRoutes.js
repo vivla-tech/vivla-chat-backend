@@ -5,7 +5,8 @@ import {
     // deleteMessage,
     // updateMessage,
     chatwootWebhook,
-    sendMessage
+    sendMessage,
+    getUnreadMessages
 } from '../controllers/messageController.js';
 import { Group, User, GroupMember } from '../models/index.js';
 
@@ -28,6 +29,9 @@ router.post('/chatwoot-webhook', chatwootWebhook);
 
 // Ruta para enviar mensajes a Chatwoot usando el servicio existente
 router.post('/send', sendMessage);
+
+// Ruta para obtener mensajes no leídos y actualizar información de grupos
+router.post('/unread', getUnreadMessages);
 
 // Ruta para simular webhook de Chatwoot en desarrollo
 router.post('/simulate-webhook', async (req, res) => {
