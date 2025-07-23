@@ -1,7 +1,7 @@
-import { Message, User, Group, GroupMember } from '../models/index.js';
+import { Message, User, Group, GroupMember, DiffusionMessage } from '../models/index.js';
 import { Op } from 'sequelize';
 import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNoteMessage, resetTicketCustomAttributes } from '../services/chatwootService.js';
-import { emitToGroup } from '../services/websocketService.js';
+import { emitToGroup, emitNotificationNewMessage } from '../services/websocketService.js';
 import { createTicket } from '../services/zendeskService.js';
 import { analyzeMessageAndGetTags } from '../services/tagService.js';
 
@@ -117,6 +117,7 @@ const cleanTicketMessage = (message) => {
  * Maneja eventos de mensajes creados (públicos)
  */
 async function handleMessageCreatedEvent(webhookData) {
+    console.log('🔍 Manejando evento de mensaje creado:', webhookData);
     const { content, message_type, sender, conversation, attachments } = webhookData;
     
     if (message_type === 'incoming') {
@@ -484,6 +485,17 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         tags: tags,
         timestamp: newMessage.created_at
     });
+
+    //DEPRECATED to be removed
+    // emitNotificationNewMessage(group_id, 'new_message_notification', {
+    //     groupId: group_id,
+    //     userId: sender_id,
+    //     message: content,
+    //     sender_name: sender_name,
+    //     message_type: 'text',
+    //     tags: tags,
+    //     timestamp: newMessage.created_at
+    // });
 }
 
 async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, attachment, media_url, thumb_url, content = '', tags = []) {
@@ -653,6 +665,98 @@ export const sendMessage = async (req, res) => {
             status: 'error',
             message: 'Error al enviar mensaje a Chatwoot',
             error: error.message
+        });
+    }
+};
+
+/**
+ * Endpoint para obtener mensajes no leídos y actualizar la información de grupos
+ * Maneja tanto grupos regulares como grupos de difusión
+ */
+export const getUnreadMessages = async (req, res) => {
+    try {
+        const groupsData = req.body;
+        const updatedGroupsData = {};
+
+        for (const [groupKey, groupInfo] of Object.entries(groupsData)) {
+            const { groupId, isDiffusionGroup, lastMessage } = groupInfo;
+            const lastMessageDate = new Date(lastMessage.created_at);
+            
+            let newUnreadCount = 0;
+            let latestMessage = null;
+            
+            if (isDiffusionGroup || groupId.toString().endsWith('_diffusion')) {
+                // Es un grupo de difusión
+                const diffusionGroupId = groupId.toString().replace('_diffusion', '');
+                
+                // Contar mensajes no leídos
+                const unreadMessages = await DiffusionMessage.findAll({
+                    where: {
+                        diffusion_group_id: diffusionGroupId,
+                        created_at: {
+                            [Op.gt]: lastMessageDate
+                        }
+                    }
+                });
+                
+                newUnreadCount = unreadMessages.length;
+                
+                // Obtener el último mensaje
+                latestMessage = await DiffusionMessage.findOne({
+                    where: {
+                        diffusion_group_id: diffusionGroupId
+                    },
+                    order: [['created_at', 'DESC']]
+                });
+                
+            } else {
+                // Es un grupo regular
+                
+                // Contar mensajes no leídos
+                const unreadMessages = await Message.findAll({
+                    where: {
+                        group_id: groupId,
+                        created_at: {
+                            [Op.gt]: lastMessageDate
+                        }
+                    }
+                });
+                
+                newUnreadCount = unreadMessages.length;
+                
+                // Obtener el último mensaje
+                latestMessage = await Message.findOne({
+                    where: {
+                        group_id: groupId
+                    },
+                    order: [['created_at', 'DESC']]
+                });
+            }
+            
+            // Actualizar la información del grupo
+            updatedGroupsData[groupKey] = {
+                ...groupInfo,
+                unreadCount: groupInfo.unreadCount + newUnreadCount,
+                lastMessage: latestMessage ? {
+                    id: latestMessage.id,
+                    content: latestMessage.content,
+                    created_at: latestMessage.created_at,
+                    group_id: isDiffusionGroup ? groupId : latestMessage.group_id || latestMessage.diffusion_group_id,
+                    message_type: latestMessage.message_type,
+                    sender_id: latestMessage.sender_id || null,
+                    sender_name: latestMessage.sender_name || 'Usuario',
+                    sender: {}
+                } : groupInfo.lastMessage
+            };
+        }
+
+        return res.status(200).json(updatedGroupsData);
+        
+    } catch (error) {
+        console.error('Error al obtener mensajes no leídos:', error);
+        return res.status(500).json({
+            error: 'Error al obtener mensajes no leídos',
+            message: error.message
         });
     }
 };
