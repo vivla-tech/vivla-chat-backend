@@ -118,12 +118,12 @@ const cleanTicketMessage = (message) => {
  */
 async function handleMessageCreatedEvent(webhookData) {
     console.log('🔍 Manejando evento de mensaje creado:', webhookData);
-    const { content, message_type, sender, conversation, attachments } = webhookData;
+    const { id, content, message_type, sender, conversation, attachments } = webhookData;
     
     if (message_type === 'incoming') {
-        await handleIncomingMessage(sender, conversation, content, attachments);
+        await handleIncomingMessage(id, sender, conversation, content, attachments);
     } else if (message_type === 'outgoing') {
-        await handleOutgoingMessage(sender, conversation, content, attachments);
+        await handleOutgoingMessage(id, sender, conversation, content, attachments);
     }
 }
 
@@ -143,7 +143,7 @@ async function handlePrivateMessageEvent(webhookData) {
 /**
  * Procesa mensajes entrantes de usuarios
  */
-async function handleIncomingMessage(sender, conversation, content, attachments) {
+async function handleIncomingMessage(cw_message_id, sender, conversation, content, attachments) {
     const ownerUser = await findUserByEmail(sender.email);
     const group = await findGroupByConversationId(conversation.id);
     
@@ -151,9 +151,9 @@ async function handleIncomingMessage(sender, conversation, content, attachments)
     const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
 
     if (attachments && attachments.length > 0) {
-        await processAttachments(group.group_id, senderUser.id, senderName, 'incoming', attachments, messageContent);
+        await processAttachments(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, attachments, messageContent);
     } else {
-        await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', messageContent);
+        await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, messageContent);
     }
     
     console.log('Nuevo mensaje creado y emitido.');
@@ -162,7 +162,7 @@ async function handleIncomingMessage(sender, conversation, content, attachments)
 /**
  * Procesa mensajes salientes de agentes VIVLA
  */
-async function handleOutgoingMessage(sender, conversation, content, attachments) {
+async function handleOutgoingMessage(cw_message_id, sender, conversation, content, attachments) {
     const group = await findGroupByConversationId(conversation.id);
     
     const { isBotMessage, agentName, cleanContent } = processAgentMessage(content, sender);
@@ -173,9 +173,9 @@ async function handleOutgoingMessage(sender, conversation, content, attachments)
     console.log(`🏷️ Tags analizados para mensaje VIVLA: [${tags.join(', ')}]`);
     
     if (attachments && attachments.length > 0) {
-        await processAttachments(group.group_id, user.id, agentName, 'outgoing', attachments, cleanContent, tags);
+        await processAttachments(group.group_id, user.id, agentName, 'outgoing', cw_message_id, attachments, cleanContent, tags);
     } else {
-        await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cleanContent, tags);
+        await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cw_message_id, cleanContent, tags);
     }
     
     console.log('Nuevo mensaje VIVLA creado y emitido con tags.');
@@ -313,7 +313,7 @@ function isValidTicketData(ticketData) {
 /**
  * Procesa attachments de mensajes
  */
-async function processAttachments(groupId, senderId, senderName, direction, attachments, fallbackContent = '', tags = []) {
+async function processAttachments(groupId, senderId, senderName, direction, cw_message_id, attachments, fallbackContent = '', tags = []) {
     console.log('🔍 Procesando attachments:', attachments);
     fallbackContent = fallbackContent || '';
     console.log('🔍 Fallback content:', fallbackContent);
@@ -322,9 +322,9 @@ async function processAttachments(groupId, senderId, senderName, direction, atta
         if (attachment.data_url) {
             const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
             const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
-            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, attachment, cleanDataUrl, cleanThumbUrl, fallbackContent, tags);
+            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, cw_message_id, attachment, cleanDataUrl, cleanThumbUrl, fallbackContent, tags);
         } else if (fallbackContent) {
-            await storeAndEmitTextMessage(groupId, senderId, senderName, direction, fallbackContent, tags);
+            await storeAndEmitTextMessage(groupId, senderId, senderName, direction, cw_message_id, fallbackContent, tags);
         }
     }
 }
@@ -463,7 +463,7 @@ async function createAgentUser(sender) {
     }
 }
 
-async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, content, tags = []) {
+async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = []) {
     // Crear un nuevo mensaje en la tabla de Messages
     const newMessage = await Message.create({
         group_id: group_id,
@@ -472,7 +472,8 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         message_type: 'text',
         direction: direction,
         content: content,
-        tags: tags
+        tags: tags,
+        cw_message_id: cw_message_id
     });
 
     // Emitir el mensaje por WebSocket a todos los usuarios del grupo
@@ -498,7 +499,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     // });
 }
 
-async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, attachment, media_url, thumb_url, content = '', tags = []) {
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, cw_message_id, attachment, media_url, thumb_url, content = '', tags = []) {
     
     const file_size = obtainFileSizeFromAttachment(attachment);
     const file_name = obtainFileNameFromAttachment(attachment);
@@ -517,7 +518,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_size: file_size,
         file_name: file_name,
         file_type: file_type,
-        tags: tags
+        tags: tags,
+        cw_message_id: cw_message_id
     });
 
     emitToGroup(group_id, 'chat_message', {

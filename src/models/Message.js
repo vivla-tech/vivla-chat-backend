@@ -7,6 +7,11 @@ const Message = sequelize.define('Message', {
         primaryKey: true,
         defaultValue: DataTypes.UUIDV4
     },
+    cw_message_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'ID externo del mensaje en Chatwoot'
+    },
     group_id: {
         type: DataTypes.UUID,
         allowNull: false,
