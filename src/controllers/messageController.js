@@ -117,6 +117,7 @@ const cleanTicketMessage = (message) => {
  * Maneja eventos de mensajes creados (públicos)
  */
 async function handleMessageCreatedEvent(webhookData) {
+    console.log('🔍 Manejando evento de mensaje creado:', webhookData);
     const { content, message_type, sender, conversation, attachments } = webhookData;
     
     if (message_type === 'incoming') {
