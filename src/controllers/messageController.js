@@ -498,6 +498,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
 
     // Crear un nuevo mensaje en la tabla de Messages
     const newMessage = await Message.create({
+        in_reply_to: repliedMessage ? repliedMessage.id : null,
         group_id: group_id,
         sender_id: sender_id,
         sender_name: sender_name,
@@ -511,15 +512,15 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
 
     // Emitir el mensaje por WebSocket a todos los usuarios del grupo
     emitToGroup(group_id, 'chat_message', {
+        message_id: newMessage.id,
+        in_reply_to: repliedMessage ? repliedMessage.id : null,
         groupId: group_id,
         userId: sender_id,
         message: content,
         sender_name: sender_name,
         message_type: 'text',
         tags: tags,
-        timestamp: newMessage.created_at,
-        message_id: newMessage.id,
-        in_reply_to: repliedMessage ? repliedMessage.id : null
+        timestamp: newMessage.created_at
     });
 
     //DEPRECATED to be removed
@@ -563,6 +564,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
     const message_type = attachment.file_type;
 
     const newMessage = await Message.create({
+        in_reply_to: repliedMessage ? repliedMessage.id : null,
         group_id: group_id,
         sender_id: sender_id,
         sender_name: sender_name,
@@ -580,6 +582,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
     });
 
     emitToGroup(group_id, 'chat_message', {
+        message_id: newMessage.id,
+        in_reply_to: repliedMessage ? repliedMessage.id : null,
         groupId: group_id,
         userId: sender_id,
         message: content,
@@ -591,9 +595,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_name: file_name,
         file_type: file_type,
         tags: tags,
-        timestamp: newMessage.created_at,
-        message_id: newMessage.id,
-        in_reply_to: repliedMessage ? repliedMessage.id : null
+        timestamp: newMessage.created_at    
     });
 }
 
