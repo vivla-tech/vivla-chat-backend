@@ -12,6 +12,11 @@ const Message = sequelize.define('Message', {
         allowNull: true,
         comment: 'ID externo del mensaje en Chatwoot'
     },
+    cw_in_reply_to: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'ID del mensaje de Chatwoot al que responde este mensaje'
+    },
     group_id: {
         type: DataTypes.UUID,
         allowNull: false,
