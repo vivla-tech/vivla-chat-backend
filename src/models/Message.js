@@ -17,6 +17,17 @@ const Message = sequelize.define('Message', {
         allowNull: true,
         comment: 'ID del mensaje de Chatwoot al que responde este mensaje'
     },
+    in_reply_to: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+            model: 'messages',
+            key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+        comment: 'UUID del mensaje al que responde este mensaje'
+    },
     group_id: {
         type: DataTypes.UUID,
         allowNull: false,
