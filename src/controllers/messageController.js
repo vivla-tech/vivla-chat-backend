@@ -475,6 +475,27 @@ async function createAgentUser(sender) {
 }
 
 async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = [], in_reply_to = null) {
+    // Buscar el mensaje al que responde si in_reply_to está seteado
+    let repliedMessage = null;
+    if (in_reply_to) {
+        repliedMessage = await Message.findOne({
+            where: {
+                cw_message_id: in_reply_to,
+                group_id: group_id
+            }
+        });
+        
+        if (repliedMessage) {
+            console.log('🔄 Mensaje encontrado al que responde:', {
+                replied_message_id: repliedMessage.id,
+                replied_content: repliedMessage.content,
+                replied_sender_name: repliedMessage.sender_name
+            });
+        } else {
+            console.log('⚠️ Mensaje al que responde no encontrado:', in_reply_to);
+        }
+    }
+
     // Crear un nuevo mensaje en la tabla de Messages
     const newMessage = await Message.create({
         group_id: group_id,
@@ -497,7 +518,8 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         message_type: 'text',
         tags: tags,
         timestamp: newMessage.created_at,
-        in_reply_to: in_reply_to
+        messageId: newMessage.id,
+        in_reply_to: repliedMessage ? repliedMessage.id : null
     });
 
     //DEPRECATED to be removed
@@ -513,6 +535,27 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
 }
 
 async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, cw_message_id, attachment, media_url, thumb_url, content = '', tags = [], in_reply_to = null) {
+    
+    // Buscar el mensaje al que responde si in_reply_to está seteado
+    let repliedMessage = null;
+    if (in_reply_to) {
+        repliedMessage = await Message.findOne({
+            where: {
+                cw_message_id: in_reply_to,
+                group_id: group_id
+            }
+        });
+        
+        if (repliedMessage) {
+            console.log('🔄 Mensaje multimedia encontrado al que responde:', {
+                replied_message_id: repliedMessage.id,
+                replied_content: repliedMessage.content,
+                replied_sender_name: repliedMessage.sender_name
+            });
+        } else {
+            console.log('⚠️ Mensaje multimedia al que responde no encontrado:', in_reply_to);
+        }
+    }
     
     const file_size = obtainFileSizeFromAttachment(attachment);
     const file_name = obtainFileNameFromAttachment(attachment);
@@ -549,7 +592,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_type: file_type,
         tags: tags,
         timestamp: newMessage.created_at,
-        in_reply_to: in_reply_to
+        messageId: newMessage.id,
+        in_reply_to: repliedMessage ? repliedMessage.id : null
     });
 }
 
