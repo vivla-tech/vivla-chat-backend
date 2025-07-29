@@ -518,7 +518,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         message_type: 'text',
         tags: tags,
         timestamp: newMessage.created_at,
-        messageId: newMessage.id,
+        message_id: newMessage.id,
         in_reply_to: repliedMessage ? repliedMessage.id : null
     });
 
@@ -592,7 +592,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_type: file_type,
         tags: tags,
         timestamp: newMessage.created_at,
-        messageId: newMessage.id,
+        message_id: newMessage.id,
         in_reply_to: repliedMessage ? repliedMessage.id : null
     });
 }
