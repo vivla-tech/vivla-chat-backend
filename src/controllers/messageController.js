@@ -480,7 +480,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     if (in_reply_to) {
         repliedMessage = await Message.findOne({
             where: {
-                cw_message_id: in_reply_to,
+                cw_message_id: in_reply_to.toString(), // Convertir a string
                 group_id: group_id
             }
         });
@@ -541,7 +541,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
     if (in_reply_to) {
         repliedMessage = await Message.findOne({
             where: {
-                cw_message_id: in_reply_to,
+                cw_message_id: in_reply_to.toString(), // Convertir a string
                 group_id: group_id
             }
         });
