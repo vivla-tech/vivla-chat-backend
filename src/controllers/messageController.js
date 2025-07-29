@@ -118,12 +118,23 @@ const cleanTicketMessage = (message) => {
  */
 async function handleMessageCreatedEvent(webhookData) {
     console.log('🔍 Manejando evento de mensaje creado:', webhookData);
-    const { id, content, message_type, sender, conversation, attachments } = webhookData;
+    const { id, content, message_type, sender, conversation, attachments, content_attributes } = webhookData;
+    
+    // Extraer in_reply_to si existe
+    const in_reply_to = content_attributes?.in_reply_to || null;
+    
+    // Verificar si es un mensaje con reply_to
+    if (content_attributes && content_attributes.in_reply_to) {
+        console.log('🔄 Mensaje con reply_to detectado:', {
+            message_id: id,
+            in_reply_to: content_attributes.in_reply_to,
+        });
+    }
     
     if (message_type === 'incoming') {
-        await handleIncomingMessage(id, sender, conversation, content, attachments);
+        await handleIncomingMessage(id, sender, conversation, content, attachments, in_reply_to);
     } else if (message_type === 'outgoing') {
-        await handleOutgoingMessage(id, sender, conversation, content, attachments);
+        await handleOutgoingMessage(id, sender, conversation, content, attachments, in_reply_to);
     }
 }
 
@@ -143,7 +154,7 @@ async function handlePrivateMessageEvent(webhookData) {
 /**
  * Procesa mensajes entrantes de usuarios
  */
-async function handleIncomingMessage(cw_message_id, sender, conversation, content, attachments) {
+async function handleIncomingMessage(cw_message_id, sender, conversation, content, attachments, in_reply_to) {
     const ownerUser = await findUserByEmail(sender.email);
     const group = await findGroupByConversationId(conversation.id);
     
@@ -151,9 +162,9 @@ async function handleIncomingMessage(cw_message_id, sender, conversation, conten
     const { name: senderName, content: messageContent } = getMessageParts(content, senderUser.name);
 
     if (attachments && attachments.length > 0) {
-        await processAttachments(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, attachments, messageContent);
+        await processAttachments(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, attachments, messageContent, in_reply_to);
     } else {
-        await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, messageContent);
+        await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, messageContent, in_reply_to);
     }
     
     console.log('Nuevo mensaje creado y emitido.');
@@ -162,7 +173,7 @@ async function handleIncomingMessage(cw_message_id, sender, conversation, conten
 /**
  * Procesa mensajes salientes de agentes VIVLA
  */
-async function handleOutgoingMessage(cw_message_id, sender, conversation, content, attachments) {
+async function handleOutgoingMessage(cw_message_id, sender, conversation, content, attachments, in_reply_to) {
     const group = await findGroupByConversationId(conversation.id);
     
     const { isBotMessage, agentName, cleanContent } = processAgentMessage(content, sender);
@@ -173,9 +184,9 @@ async function handleOutgoingMessage(cw_message_id, sender, conversation, conten
     console.log(`🏷️ Tags analizados para mensaje VIVLA: [${tags.join(', ')}]`);
     
     if (attachments && attachments.length > 0) {
-        await processAttachments(group.group_id, user.id, agentName, 'outgoing', cw_message_id, attachments, cleanContent, tags);
+        await processAttachments(group.group_id, user.id, agentName, 'outgoing', cw_message_id, attachments, cleanContent, tags, in_reply_to);
     } else {
-        await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cw_message_id, cleanContent, tags);
+        await storeAndEmitTextMessage(group.group_id, user.id, agentName, 'outgoing', cw_message_id, cleanContent, tags, in_reply_to);
     }
     
     console.log('Nuevo mensaje VIVLA creado y emitido con tags.');
@@ -313,7 +324,7 @@ function isValidTicketData(ticketData) {
 /**
  * Procesa attachments de mensajes
  */
-async function processAttachments(groupId, senderId, senderName, direction, cw_message_id, attachments, fallbackContent = '', tags = []) {
+async function processAttachments(groupId, senderId, senderName, direction, cw_message_id, attachments, fallbackContent = '', tags = [], in_reply_to = null) {
     console.log('🔍 Procesando attachments:', attachments);
     fallbackContent = fallbackContent || '';
     console.log('🔍 Fallback content:', fallbackContent);
@@ -322,9 +333,9 @@ async function processAttachments(groupId, senderId, senderName, direction, cw_m
         if (attachment.data_url) {
             const cleanDataUrl = cleanChatwootDataUrl(attachment.data_url);
             const cleanThumbUrl = cleanChatwootDataUrl(attachment.thumb_url);
-            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, cw_message_id, attachment, cleanDataUrl, cleanThumbUrl, fallbackContent, tags);
+            await storeAndEmitMediaMessage(groupId, senderId, senderName, direction, cw_message_id, attachment, cleanDataUrl, cleanThumbUrl, fallbackContent, tags, in_reply_to);
         } else if (fallbackContent) {
-            await storeAndEmitTextMessage(groupId, senderId, senderName, direction, cw_message_id, fallbackContent, tags);
+            await storeAndEmitTextMessage(groupId, senderId, senderName, direction, cw_message_id, fallbackContent, tags, in_reply_to);
         }
     }
 }
@@ -463,7 +474,7 @@ async function createAgentUser(sender) {
     }
 }
 
-async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = []) {
+async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = [], in_reply_to = null) {
     // Crear un nuevo mensaje en la tabla de Messages
     const newMessage = await Message.create({
         group_id: group_id,
@@ -473,7 +484,8 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         direction: direction,
         content: content,
         tags: tags,
-        cw_message_id: cw_message_id
+        cw_message_id: cw_message_id,
+        cw_in_reply_to: in_reply_to
     });
 
     // Emitir el mensaje por WebSocket a todos los usuarios del grupo
@@ -484,7 +496,8 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         sender_name: sender_name,
         message_type: 'text',
         tags: tags,
-        timestamp: newMessage.created_at
+        timestamp: newMessage.created_at,
+        in_reply_to: in_reply_to
     });
 
     //DEPRECATED to be removed
@@ -499,7 +512,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     // });
 }
 
-async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, cw_message_id, attachment, media_url, thumb_url, content = '', tags = []) {
+async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, cw_message_id, attachment, media_url, thumb_url, content = '', tags = [], in_reply_to = null) {
     
     const file_size = obtainFileSizeFromAttachment(attachment);
     const file_name = obtainFileNameFromAttachment(attachment);
@@ -519,7 +532,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_name: file_name,
         file_type: file_type,
         tags: tags,
-        cw_message_id: cw_message_id
+        cw_message_id: cw_message_id,
+        cw_in_reply_to: in_reply_to
     });
 
     emitToGroup(group_id, 'chat_message', {
@@ -534,7 +548,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_name: file_name,
         file_type: file_type,
         tags: tags,
-        timestamp: newMessage.created_at
+        timestamp: newMessage.created_at,
+        in_reply_to: in_reply_to
     });
 }
 
