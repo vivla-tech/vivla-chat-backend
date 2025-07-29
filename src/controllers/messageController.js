@@ -164,7 +164,7 @@ async function handleIncomingMessage(cw_message_id, sender, conversation, conten
     if (attachments && attachments.length > 0) {
         await processAttachments(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, attachments, messageContent, in_reply_to);
     } else {
-        await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, messageContent, in_reply_to);
+        await storeAndEmitTextMessage(group.group_id, senderUser.id, senderName, 'incoming', cw_message_id, messageContent, [], in_reply_to);
     }
     
     console.log('Nuevo mensaje creado y emitido.');
