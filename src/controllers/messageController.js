@@ -474,8 +474,7 @@ async function createAgentUser(sender) {
     }
 }
 
-async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = [], cw_in_reply_to = null) {
-    // Buscar el mensaje al que responde si cw_in_reply_to está seteado
+async function getRepliedMessage(group_id, cw_in_reply_to) {
     let repliedMessage = null;
     if (cw_in_reply_to) {
         repliedMessage = await Message.findOne({
@@ -484,7 +483,6 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
                 group_id: group_id
             }
         });
-        
         if (repliedMessage) {
             console.log('🔄 Mensaje encontrado al que responde:', {
                 replied_message_id: repliedMessage.id,
@@ -495,6 +493,12 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
             console.log('⚠️ Mensaje al que responde no encontrado:', cw_in_reply_to);
         }
     }
+    return repliedMessage;
+}
+
+async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = [], cw_in_reply_to = null) {
+    // Buscar el mensaje al que responde si cw_in_reply_to está seteado
+    const repliedMessage = getRepliedMessage(group_id, cw_in_reply_to);
 
     // Crear un nuevo mensaje en la tabla de Messages
     const newMessage = await Message.create({
@@ -538,26 +542,9 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
 async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, cw_message_id, attachment, media_url, thumb_url, content = '', tags = [], cw_in_reply_to = null) {
     
     // Buscar el mensaje al que responde si cw_in_reply_to está seteado
-    let repliedMessage = null;
-    if (cw_in_reply_to) {
-        repliedMessage = await Message.findOne({
-            where: {
-                cw_message_id: cw_in_reply_to.toString(), // Convertir a string
-                group_id: group_id
-            }
-        });
-        
-        if (repliedMessage) {
-            console.log('🔄 Mensaje multimedia encontrado al que responde:', {
-                replied_message_id: repliedMessage.id,
-                replied_content: repliedMessage.content,
-                replied_sender_name: repliedMessage.sender_name
-            });
-        } else {
-            console.log('⚠️ Mensaje multimedia al que responde no encontrado:', cw_in_reply_to);
-        }
-    }
-    
+    const repliedMessage = getRepliedMessage(group_id, cw_in_reply_to);
+
+    // Obtener el tamaño, nombre y tipo de archivo
     const file_size = obtainFileSizeFromAttachment(attachment);
     const file_name = obtainFileNameFromAttachment(attachment);
     const file_type = obtainFileTypeFromAttachment(attachment);
