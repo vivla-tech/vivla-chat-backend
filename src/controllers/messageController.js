@@ -4,6 +4,7 @@ import { sendClientMessage, sendMessage as chatwootSendMessage, sendInternalNote
 import { emitToGroup, emitNotificationNewMessage } from '../services/websocketService.js';
 import { createTicket } from '../services/zendeskService.js';
 import { analyzeMessageAndGetTags } from '../services/tagService.js';
+import { decodeInvisible } from '../utils/encodeUtils.js';
 
 
 // // Obtener mensajes de un grupo
@@ -119,6 +120,10 @@ const cleanTicketMessage = (message) => {
 async function handleMessageCreatedEvent(webhookData) {
     console.log('🔍 Manejando evento de mensaje creado:', webhookData);
     const { id, content, message_type, sender, conversation, attachments, content_attributes } = webhookData;
+
+    const { clientMessageId, cleanContent } = decodeInvisible(content);
+    console.log('🔍 Client message ID:', clientMessageId);
+    console.log('🔍 Clean content:', cleanContent);
     
     // Extraer cw_in_reply_to si existe
     const cw_in_reply_to = content_attributes?.in_reply_to || null;
