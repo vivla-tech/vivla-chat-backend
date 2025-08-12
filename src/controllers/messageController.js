@@ -503,6 +503,7 @@ function buildInReplyToPayload(message) {
         id: message.id,
         sender_name: message.sender_name,
         message_type: message.message_type,
+        message_content: message.content,
         thumb_url: message.thumb_url || null
     };
 }
