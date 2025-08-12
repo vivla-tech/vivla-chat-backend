@@ -55,5 +55,7 @@ export function decodeInvisible(content) {
 
   // quita el bloque invisible del content
   const cleanContent = content.slice(0, startIdx) + content.slice(endIdx + END.length);
+  console.log('🔍 Client message ID:', id);
+  console.log('🔍 Clean content:', cleanContent);
   return { clientMessageId: id, cleanContent };
 }

@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { User, Group } from '../models/index.js';
 import { sendMessage } from '../services/chatwootService.js';
 import { sendMediaLinkToChatwoot } from '../services/chatwootAttachmentService.js';
+import { encodeInvisible } from '../utils/encodeUtils.js';
 
 // Rename the function for consistency
 const sendMediaMessage = sendMediaLinkToChatwoot;
@@ -64,9 +65,16 @@ function handleConnection(socket) {
         try {
             const { groupId, userId, content, messageType, media_url, clientMessageId } = data;
             console.log('🔍 Client message ID:', clientMessageId);
+
             if (!groupId || !userId || (!messageType == 'text' && !content)) {
                 console.error('Error: datos incompletos en send_message:', data);
                 return;
+            }
+            // Si existe clientMessageId, se debe codificar el contenido invisible
+            let baseContent = content ?? '';
+            if(clientMessageId){
+                const invisibleContent = encodeInvisible(clientMessageId);
+                baseContent = content + invisibleContent;
             }
             // Log optional parameters if they exist
             if (messageType) {
@@ -90,14 +98,14 @@ function handleConnection(socket) {
             }
 
             if (messageType && messageType != 'text') {
-                let messageContent = content || '';
+                let messageContent = baseContent || '';
                 messageContent = `**${user.name}**\n\n${messageContent}`
                 console.log('📺 🧐 Datos multipedia recibidos:', data);
                 console.log('📺 🧐 Message content:', messageContent);
                 await sendMediaMessage(group.cw_conversation_id, media_url, messageContent);
             }else{
                 // Enviar a Chatwoot
-                const messageContent = `**${user.name}**\n\n${content}`;
+                const messageContent = `**${user.name}**\n\n${baseContent}`;
                 await sendMessage(group.cw_conversation_id, messageContent);
             }
             

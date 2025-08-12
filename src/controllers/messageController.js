@@ -121,10 +121,6 @@ async function handleMessageCreatedEvent(webhookData) {
     console.log('🔍 Manejando evento de mensaje creado:', webhookData);
     const { id, content, message_type, sender, conversation, attachments, content_attributes } = webhookData;
 
-    const { clientMessageId, cleanContent } = decodeInvisible(content);
-    console.log('🔍 Client message ID:', clientMessageId);
-    console.log('🔍 Clean content:', cleanContent);
-    
     // Extraer cw_in_reply_to si existe
     const cw_in_reply_to = content_attributes?.in_reply_to || null;
     
@@ -503,7 +499,7 @@ async function getRepliedMessage(group_id, cw_in_reply_to) {
 
 async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = [], cw_in_reply_to = null) {
     // Buscar el mensaje al que responde si cw_in_reply_to está seteado
-    const repliedMessage = getRepliedMessage(group_id, cw_in_reply_to);
+    const repliedMessage = await getRepliedMessage(group_id, cw_in_reply_to);
 
     // Crear un nuevo mensaje en la tabla de Messages
     const newMessage = await Message.create({
@@ -513,10 +509,11 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         sender_name: sender_name,
         message_type: 'text',
         direction: direction,
-        content: content,
+        content: cleanContent || content,
         tags: tags,
         cw_message_id: cw_message_id,
-        cw_in_reply_to: cw_in_reply_to
+        cw_in_reply_to: cw_in_reply_to,
+        client_message_id: clientMessageId || null
     });
 
     // Emitir el mensaje por WebSocket a todos los usuarios del grupo
@@ -525,11 +522,12 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
         in_reply_to: repliedMessage ? repliedMessage.id : null,
         groupId: group_id,
         userId: sender_id,
-        message: content,
+        message: cleanContent || content,
         sender_name: sender_name,
         message_type: 'text',
         tags: tags,
-        timestamp: newMessage.created_at
+        timestamp: newMessage.created_at,
+        client_message_id: clientMessageId || null
     });
 
     //DEPRECATED to be removed
@@ -547,7 +545,8 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
 async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direction, cw_message_id, attachment, media_url, thumb_url, content = '', tags = [], cw_in_reply_to = null) {
     
     // Buscar el mensaje al que responde si cw_in_reply_to está seteado
-    const repliedMessage = getRepliedMessage(group_id, cw_in_reply_to);
+    const repliedMessage = await getRepliedMessage(group_id, cw_in_reply_to);
+    const { clientMessageId, cleanContent } = decodeInvisible(content);
 
     // Obtener el tamaño, nombre y tipo de archivo
     const file_size = obtainFileSizeFromAttachment(attachment);
@@ -562,7 +561,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         sender_name: sender_name,
         message_type: message_type,
         direction: direction,
-        content: content,
+        content: cleanContent || content,
         media_url: media_url,
         thumb_url: thumb_url,
         file_size: file_size,
@@ -570,7 +569,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_type: file_type,
         tags: tags,
         cw_message_id: cw_message_id,
-        cw_in_reply_to: cw_in_reply_to
+        cw_in_reply_to: cw_in_reply_to,
+        client_message_id: clientMessageId || null
     });
 
     emitToGroup(group_id, 'chat_message', {
@@ -578,7 +578,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         in_reply_to: repliedMessage ? repliedMessage.id : null,
         groupId: group_id,
         userId: sender_id,
-        message: content,
+        message: cleanContent || content,
         sender_name: sender_name,
         media_url: media_url,
         thumb_url: thumb_url,
@@ -587,7 +587,8 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
         file_name: file_name,
         file_type: file_type,
         tags: tags,
-        timestamp: newMessage.created_at    
+        timestamp: newMessage.created_at,
+        client_message_id: clientMessageId || null
     });
 }
 
