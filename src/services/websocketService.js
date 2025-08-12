@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { User, Group } from '../models/index.js';
 import { sendMessage } from '../services/chatwootService.js';
 import { sendMediaLinkToChatwoot } from '../services/chatwootAttachmentService.js';
+import { decodeInvisible } from '../utils/encodeUtils.js';
 
 // Rename the function for consistency
 const sendMediaMessage = sendMediaLinkToChatwoot;
@@ -67,6 +68,11 @@ function handleConnection(socket) {
                 console.error('Error: datos incompletos en send_message:', data);
                 return;
             }
+            
+            // Decodificar el contenido invisible
+            const { clientMessageId, cleanContent } = decodeInvisible(content);
+            console.log('🔍 Client message ID:', clientMessageId);
+            console.log('🔍 Clean content:', cleanContent);
 
             // Log optional parameters if they exist
             if (messageType) {
