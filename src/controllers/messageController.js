@@ -500,6 +500,7 @@ async function getRepliedMessage(group_id, cw_in_reply_to) {
 async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = [], cw_in_reply_to = null) {
     // Buscar el mensaje al que responde si cw_in_reply_to está seteado
     const repliedMessage = await getRepliedMessage(group_id, cw_in_reply_to);
+    const { clientMessageId, cleanContent } = decodeInvisible(content);
 
     // Crear un nuevo mensaje en la tabla de Messages
     const newMessage = await Message.create({
