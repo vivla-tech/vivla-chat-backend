@@ -497,9 +497,20 @@ async function getRepliedMessage(group_id, cw_in_reply_to) {
     return repliedMessage;
 }
 
+function buildInReplyToPayload(message) {
+    if (!message) return null;
+    return {
+        id: message.id,
+        sender_name: message.sender_name,
+        message_type: message.message_type,
+        thumb_url: message.thumb_url || null
+    };
+}
+
 async function storeAndEmitTextMessage(group_id, sender_id, sender_name, direction, cw_message_id, content, tags = [], cw_in_reply_to = null) {
     // Buscar el mensaje al que responde si cw_in_reply_to está seteado
     const repliedMessage = await getRepliedMessage(group_id, cw_in_reply_to);
+    const inReplyToPayload = buildInReplyToPayload(repliedMessage);
     const { clientMessageId, cleanContent } = decodeInvisible(content);
 
     // Crear un nuevo mensaje en la tabla de Messages
@@ -520,7 +531,7 @@ async function storeAndEmitTextMessage(group_id, sender_id, sender_name, directi
     // Emitir el mensaje por WebSocket a todos los usuarios del grupo
     emitToGroup(group_id, 'chat_message', {
         message_id: newMessage.id,
-        in_reply_to: repliedMessage ? repliedMessage.id : null,
+        in_reply_to: inReplyToPayload,
         groupId: group_id,
         userId: sender_id,
         message: cleanContent || content,
@@ -547,6 +558,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
     
     // Buscar el mensaje al que responde si cw_in_reply_to está seteado
     const repliedMessage = await getRepliedMessage(group_id, cw_in_reply_to);
+    const inReplyToPayload = buildInReplyToPayload(repliedMessage);
     const { clientMessageId, cleanContent } = decodeInvisible(content);
 
     // Obtener el tamaño, nombre y tipo de archivo
@@ -576,7 +588,7 @@ async function storeAndEmitMediaMessage(group_id, sender_id, sender_name, direct
 
     emitToGroup(group_id, 'chat_message', {
         message_id: newMessage.id,
-        in_reply_to: repliedMessage ? repliedMessage.id : null,
+        in_reply_to: inReplyToPayload,
         groupId: group_id,
         userId: sender_id,
         message: cleanContent || content,
